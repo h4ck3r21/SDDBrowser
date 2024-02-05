@@ -889,7 +889,6 @@ namespace WindowsFormsApp1
             WindowState = FormWindowState.Minimized;
         }
 
-
         // tabs
 
         private void updateTabs()

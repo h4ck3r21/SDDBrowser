@@ -21,7 +21,7 @@ namespace SDDBrowser
             int width;
             using (Graphics graphics = Graphics.FromImage(new Bitmap(1, 1)))
             {
-                SizeF size = graphics.MeasureString("Hello there", new Font("Segoe UI", 11, FontStyle.Regular, GraphicsUnit.Point));
+                SizeF size = graphics.MeasureString(button.Text, new Font("Segoe UI", 11, FontStyle.Regular, GraphicsUnit.Point));
                 width = (int)size.Width;
             }
             button.Size = new Size(width, 50);
