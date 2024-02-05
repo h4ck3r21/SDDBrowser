@@ -220,7 +220,7 @@ namespace WindowsFormsApp1
             this.contentHeader.ResumeLayout(false);
             this.contentHeader.PerformLayout();
             this.ResumeLayout(false);
-
+             
         }
 
         #endregion
