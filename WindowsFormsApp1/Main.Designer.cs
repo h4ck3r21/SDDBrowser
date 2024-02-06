@@ -45,7 +45,8 @@ namespace WindowsFormsApp1
             this.minimiseButton = new System.Windows.Forms.Button();
             this.minimiseToolTip = new System.Windows.Forms.ToolTip(this.components);
             this.closeToolTip = new System.Windows.Forms.ToolTip(this.components);
-            this.Content.SuspendLayout();
+            this.newTabBtn = new System.Windows.Forms.Button();
+            this.Tabs.SuspendLayout();
             this.contentHeader.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -63,6 +64,7 @@ namespace WindowsFormsApp1
             // 
             this.Tabs.BackColor = System.Drawing.Color.Transparent;
             this.Tabs.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.Tabs.Controls.Add(this.newTabBtn);
             this.Tabs.Cursor = System.Windows.Forms.Cursors.Default;
             this.Tabs.Location = new System.Drawing.Point(56, 155);
             this.Tabs.Name = "Tabs";
@@ -198,13 +200,23 @@ namespace WindowsFormsApp1
             this.minimiseButton.UseVisualStyleBackColor = false;
             this.minimiseButton.Click += new System.EventHandler(this.minimiseButton_Click);
             // 
+            // newTabBtn
+            // 
+            this.newTabBtn.Location = new System.Drawing.Point(3, 7);
+            this.newTabBtn.Name = "newTabBtn";
+            this.newTabBtn.Size = new System.Drawing.Size(50, 50);
+            this.newTabBtn.TabIndex = 0;
+            this.newTabBtn.Text = "+";
+            this.newTabBtn.UseVisualStyleBackColor = true;
+            this.newTabBtn.Click += new System.EventHandler(this.newTabBtn_Click);
+            // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.BackColor = System.Drawing.SystemColors.Control;
-            this.ClientSize = new System.Drawing.Size(1200, 920);
+            this.ClientSize = new System.Drawing.Size(1260, 985);
             this.Controls.Add(this.Content);
             this.Controls.Add(this.contentHeader);
             this.Controls.Add(this.Tabs);
@@ -216,7 +228,7 @@ namespace WindowsFormsApp1
             this.Name = "Main";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Show;
             this.Load += new System.EventHandler(this.Main_Load);
-            this.Content.ResumeLayout(false);
+            this.Tabs.ResumeLayout(false);
             this.contentHeader.ResumeLayout(false);
             this.contentHeader.PerformLayout();
             this.ResumeLayout(false);
@@ -239,6 +251,7 @@ namespace WindowsFormsApp1
         private ToolTip closeToolTip;
         private Panel Bookmarks;
         private Panel Tabs;
+        private Button newTabBtn;
     }
 }
 

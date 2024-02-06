@@ -25,9 +25,11 @@ namespace WindowsFormsApp1
         }
 
         ChromiumWebBrowser currentPage;
+        string defaultURL = "www.google.com";
         List<string> domains;
         List<string> historyStack;
         List<Tab> tabs = new List<Tab>();
+        Tab currentTab;
         string lastSite;
         int historyStackIndex;
         bool fromHistory;
@@ -52,22 +54,8 @@ namespace WindowsFormsApp1
         // window
         private void Main_Load(object sender, EventArgs e)
         {
-            currentPage = new ChromiumWebBrowser();
-            currentPage.LoadUrl(textURL.Text);
-            Content.Controls.Add(currentPage);
-            currentPage.Dock = DockStyle.Fill;
+            generateNewTab(defaultURL);
 
-            tabs.Add(new Tab(currentPage, new Button()));
-            
-            updateTabs();
-
-            currentPage.AddressChanged += new EventHandler<AddressChangedEventArgs>(browser_AddressChanged);
-            currentPage.FrameLoadEnd += new EventHandler<FrameLoadEndEventArgs>(browser_FrameLoadEnd);
-            currentPage.FrameLoadStart += new EventHandler<FrameLoadStartEventArgs>(browser_FrameLoadStart);
-            currentPage.TitleChanged += delegate (object titleSender, TitleChangedEventArgs titleArgs)
-            {
-                currentPage.Name = titleArgs.Title;
-            };
             getColours();
 
             StreamReader reader = File.OpenText("domain_names.csv");
@@ -78,16 +66,32 @@ namespace WindowsFormsApp1
                 var values = line.Split(',');
                 domains.Add(values[0]);
             }
-
-            historyStack = new List<string>();
-            historyStackIndex = 0;
-            fromHistory = false;
+            
             lastSize = base.Size;
             loaded = true;
             initialiseFormEdge();
             updateNavButtons();
         }
 
+        private void generateNewTab(string Url)
+        {
+            currentPage = new ChromiumWebBrowser();
+            currentPage.LoadUrl(Url);
+            //Content.Controls.Clear();
+            Content.Controls.Add(currentPage);
+            currentPage.BringToFront();
+            currentPage.Dock = DockStyle.Fill;
+            currentPage.AddressChanged += new EventHandler<AddressChangedEventArgs>(browser_AddressChanged);
+            currentPage.FrameLoadEnd += new EventHandler<FrameLoadEndEventArgs>(browser_FrameLoadEnd);
+            currentPage.FrameLoadStart += new EventHandler<FrameLoadStartEventArgs>(browser_FrameLoadStart);
+            currentPage.TitleChanged += delegate (object titleSender, TitleChangedEventArgs titleArgs)
+            {
+                currentPage.Name = titleArgs.Title;
+            };
+
+            currentTab = addTab(currentPage);
+            changeTabs(currentTab);
+        }
 
         // https://stackoverflow.com/questions/22780571/scale-windows-forms-window
         protected override void OnResize(EventArgs e)
@@ -413,18 +417,18 @@ namespace WindowsFormsApp1
             {
                 isDragging = true;
                 lastRectangle = new Rectangle(e.Location.X, e.Location.Y, this.Width, this.Height);
-                if (snapped)
-                {
-                    snapped = false;
-                    Size = oldSize;
-                    Console.WriteLine(snapped);
-                }
             }
         }
 
         private void form_MouseMove(object sender, MouseEventArgs e)
         {
-            if (wasFullScreen && isDragging)
+            if (snapped)
+            {
+                snapped = false;
+                Size = oldSize;
+                form_MouseDown(sender, e);
+            }
+            else if (wasFullScreen && isDragging)
             {
                 form_MouseDown(sender, e);
                 wasFullScreen = false;
@@ -439,7 +443,7 @@ namespace WindowsFormsApp1
             else if (isDragging && WindowState == FormWindowState.Maximized)
             {
                 WindowState = FormWindowState.Normal;
-                Location = new Point(e.Location.X - Width/2, e.Location.Y);
+                Location = new Point(MousePosition.X - Width/2, MousePosition.Y);
                 wasFullScreen = true;
             }
         }
@@ -540,7 +544,6 @@ namespace WindowsFormsApp1
             nearEdgeFunction resizeWindow = delegate (Rectangle rectangle)
             {
                 oldSize = Size;
-                Console.WriteLine(snapped);
                 if (this.edgeSnap == "top")
                 {
                     this.WindowState = FormWindowState.Maximized;
@@ -549,7 +552,6 @@ namespace WindowsFormsApp1
                     Bounds = rectangle;
                 }
                 snapped = true;
-                Console.WriteLine(snapped);
             };
             checkEdgeResizing(sender, e, resizeWindow);
         }
@@ -575,7 +577,10 @@ namespace WindowsFormsApp1
 
         private void browser_AddressChanged(object sender, AddressChangedEventArgs e)
         {
-            setTextURL(e.Address);
+            if (sender == currentPage)
+            {
+                setTextURL(e.Address);
+            }
             if (historyStack.Count == 0 || e.Address != lastSite)
             {
                 if (!fromHistory)
@@ -588,6 +593,7 @@ namespace WindowsFormsApp1
                     {
                         historyStack.Add(e.Address);
                         historyStackIndex++;
+                        currentTab.setHistoryIndex(historyStackIndex);
                     }
                 }
                 fromHistory = false;
@@ -691,6 +697,8 @@ namespace WindowsFormsApp1
 
         private void updateNavButtons()
         {
+            Console.WriteLine(historyStack.Count);
+            Console.WriteLine(historyStackIndex);
             setBackButtonEnabled(historyStackIndex > 1);
             setForwardButtonEnabled(historyStackIndex < historyStack.Count);
             if (backButton.Enabled)
@@ -838,9 +846,13 @@ namespace WindowsFormsApp1
 
         private void backButton_Click(object sender, EventArgs e)
         {
-            historyStackIndex--;
-            fromHistory = true;
-            currentPage.LoadUrl(historyStack[historyStackIndex - 1]);
+            if (historyStackIndex > 1)
+            {
+                historyStackIndex--;
+                currentTab.setHistoryIndex(historyStackIndex);
+                fromHistory = true;
+                currentPage.LoadUrl(historyStack[historyStackIndex - 1]);
+            }
         }
 
         private void backButton_Hover(object sender, EventArgs e)
@@ -855,9 +867,13 @@ namespace WindowsFormsApp1
 
         private void forwardButton_Click(object sender, EventArgs e)
         {
-            historyStackIndex++;
-            fromHistory = true;
-            currentPage.LoadUrl(historyStack[historyStackIndex - 1]);
+            if (historyStackIndex < historyStack.Count())
+            {
+                historyStackIndex++;
+                currentTab.setHistoryIndex(historyStackIndex);
+                fromHistory = true;
+                currentPage.LoadUrl(historyStack[historyStackIndex - 1]);
+            }
         }
 
         private void reloadButton_Click(object sender, EventArgs e)
@@ -878,7 +894,6 @@ namespace WindowsFormsApp1
                 {
                     snapped = false;
                     Size = oldSize;
-                    Console.WriteLine(snapped);
                 }
             }
             
@@ -894,34 +909,136 @@ namespace WindowsFormsApp1
 
         private void updateTabs()
         {
-            Tabs.Controls.Clear();
+            clearTabs();
             int currentXPos = 0;
             foreach (Tab tab in tabs) 
             {
                 Button btn = tab.GetButton();
                 btn.Location = new Point(currentXPos, 0);
-                Tabs.Controls.Add(btn);
+                addBtnControl(btn);
+                currentXPos += btn.Width;
+            }
+            addBtnControl(newTabBtn);
+            setNewTabButtonLocation(new Point(currentXPos, newTabBtn.Location.Y));
+        }
+
+        delegate void SetButtonCallback(Button button);
+        private void addBtnControl(Button button)
+        {
+            if (Tabs.InvokeRequired)
+            {
+                var d = new SetButtonCallback(addBtnControl);
+                textURL.Invoke(d, new object[] { button });
+            }
+            else
+            {
+                Tabs.Controls.Add(button);
             }
         }
 
-        private void addTab(ChromiumWebBrowser tab)
+        delegate void SetPointCallback(Point point);
+        private void setNewTabButtonLocation(Point point)
         {
-            Button btn = new Button();
-            btn.Click += new EventHandler(changeTabs);
+            if (newTabBtn.InvokeRequired)
+            {
+                var d = new SetPointCallback(setNewTabButtonLocation);
+                newTabBtn.Invoke(d, new object[] { point });
+            }
+            else
+            {
+                newTabBtn.Location = point;
+            }
+        }
+
+        delegate void SetVoidCallback();
+        private void clearTabs()
+        {
+            if (newTabBtn.InvokeRequired)
+            {
+                var d = new SetVoidCallback(clearTabs);
+                newTabBtn.Invoke(d, new object[] {  });
+            }
+            else
+            {
+                Tabs.Controls.Clear();
+            }
+        }
+
+        private Tab addTab(ChromiumWebBrowser tab)
+        {
+            Tab newTab = new Tab(tab, updateTabs);
+
+            Button btn = newTab.GetButton();
+            btn.Click += new EventHandler(changeTabsButton);
             btn.ForeColor = foreColor;
             btn.BackColor = backColor;
+
+            Button closeBtn = newTab.GetCloseButton();
+            closeBtn.Click += new EventHandler(closeTab);
+
             Tabs.Controls.Add(btn);
+            tabs.Add(newTab);
+            updateTabs();
+            return newTab;
         }
 
-        private void changeTabs(object sender, EventArgs e)
+        private void changeTabsButton(object sender, EventArgs e)
         {
-
+            
+            Button btn = (Button)sender;
+            Console.WriteLine(btn.Text);
+            bool checkButtons(Tab t)
+            {
+                return (t.GetButton() == btn);
+            }
+            Tab tab = tabs.Find(checkButtons);
+            changeTabs(tab);
         }
 
-        private void onBrowserTitleChange(object sender, TitleChangedEventArgs e)
+        private void changeTabs(Tab tab)
         {
-            Console.WriteLine(e.Title);
+            currentPage = tab.GetBrowser();
+            currentTab = tab;
+            textURL.Text = tab.GetBrowser().Address;
+            tab.GetBrowser().BringToFront();
+            historyStack = tab.getHistory();
+            historyStackIndex = tab.getHistoryIndex();
+            updateNavButtons();
+        } 
+
+        private void newTabBtn_Click(object sender, EventArgs e)
+        {
+            generateNewTab(defaultURL); 
         }
 
+        private void closeTab(object sender, EventArgs e)
+        {
+            Button btn = (Button)sender;
+            Console.WriteLine(btn.Text);
+            bool checkButton(Tab t)
+            {
+                return (t.GetCloseButton() == btn);
+            }
+            Tab tab = tabs.Find(checkButton);
+            tabs.Remove(tab);
+            Content.Controls.Remove(tab.GetBrowser());
+            updateTabs();
+            if (currentTab == tab)
+            {
+                foreach (Control browser in Content.Controls)
+                {
+                    if (Content.Controls.GetChildIndex(browser) == 0)
+                    {
+                        currentPage = (ChromiumWebBrowser)browser;
+                        bool checkBrowser(Tab t)
+                        {
+                            return (t.GetBrowser() == currentPage);
+                        }
+                        Tab currentTab = tabs.Find(checkBrowser);
+                        changeTabs(currentTab);
+                    }
+                }
+            }
+        }
     }
 }
