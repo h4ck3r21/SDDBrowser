@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.IdentityModel.Tokens;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -10,12 +12,15 @@ using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using CefSharp;
 using CefSharp.WinForms;
-using SDDBrowser;
+using SDDPopup;
+using SDDTabs;
 using Windows.System;
+using Windows.UI.Input;
 using Windows.UI.ViewManagement;
+using Windows.UI.Xaml.Controls.Primitives;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
-namespace WindowsFormsApp1
+namespace SDDWebBrowser
 {
     public partial class Main : Form
     {
@@ -30,6 +35,13 @@ namespace WindowsFormsApp1
         List<string> historyStack;
         List<Tab> tabs = new List<Tab>();
         Tab currentTab;
+        List<(Panel, Panel)> appPanels = new List<(Panel, Panel)>();
+        bool isMergingToApp = false;
+        List<Action> needsHandle = new List<Action>();
+        Main appMergingTo;
+        long lastFocused = 0;
+        bool isDead;
+        int debug = 0;
         string lastSite;
         int historyStackIndex;
         bool fromHistory;
@@ -48,12 +60,37 @@ namespace WindowsFormsApp1
         string edgeSnap = "None";
         Size oldSize;
         bool snapped = false;
-        Button newTabButton;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
+        public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint cButtons, uint dwExtraInfo);
+        [DllImport("user32.dll", CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
+        public static extern bool BlockInput(bool fBlockIt);
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = false)]
+        static extern IntPtr SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+        //Mouse actions
+        private const int MOUSEEVENTF_LEFTDOWN = 0x02;
+        private const int MOUSEEVENTF_LEFTUP = 0x04;
+        private const int MOUSEEVENTF_RIGHTDOWN = 0x08;
+        private const int MOUSEEVENTF_RIGHTUP = 0x10;
+        private const int MOUSEEVENTF_ABSOLUTE = 0x8000;
+        private const int MOUSEEVENTF_MOVE = 0x01;
+        public enum WMessages : int
+        {
+            WM_LBUTTONDOWN = 0x201, //Left mousebutton down
+            WM_LBUTTONUP = 0x202,   //Left mousebutton up
+            WM_LBUTTONDBLCLK = 0x203, //Left mousebutton doubleclick
+            WM_RBUTTONDOWN = 0x204, //Right mousebutton down
+            WM_RBUTTONUP = 0x205,   //Right mousebutton up
+            WM_RBUTTONDBLCLK = 0x206, //Right mousebutton do
+        }
 
 
         // window
         private void Main_Load(object sender, EventArgs e)
         {
+            Console.WriteLine("started new app");
+            Activated += new EventHandler(form_gotFocus);
+            lastFocused = DateTime.UtcNow.Ticks;
             generateNewTab(defaultURL);
 
             getColours();
@@ -67,10 +104,27 @@ namespace WindowsFormsApp1
                 domains.Add(values[0]);
             }
             
-            lastSize = base.Size;
+            lastSize = Size;
             loaded = true;
+
             initialiseFormEdge();
             updateNavButtons();
+            appPanels.Add((Tabs, Content));
+        }
+
+        protected override void CreateHandle()
+        {
+            base.CreateHandle();
+            foreach (Action action in needsHandle)
+            {
+                action();
+            }
+        }
+
+        private void form_gotFocus(object sender, EventArgs e)
+        {
+            lastFocused = DateTime.UtcNow.Ticks;
+            Console.WriteLine($"{Text} Got Focus: {lastFocused}");
         }
 
         private void generateNewTab(string Url)
@@ -91,6 +145,7 @@ namespace WindowsFormsApp1
 
             currentTab = addTab(currentPage);
             changeTabs(currentTab);
+
         }
 
         // https://stackoverflow.com/questions/22780571/scale-windows-forms-window
@@ -100,15 +155,15 @@ namespace WindowsFormsApp1
 
             if (loaded)
             {
-                ResizeWidthControl(Content, base.Size);
-                ResizeHeightControl(Content, base.Size);
-                ResizeWidthControl(contentHeader, base.Size);
-                ResizeWidthControl(textURL, base.Size);
-                ResizeWidthControl(Tabs, base.Size);
-                RepositionWidthPosition(closeButton, base.Size);
-                RepositionWidthPosition(maximiseButton, base.Size);
-                RepositionWidthPosition(minimiseButton, base.Size);
-                lastSize = base.Size;
+                ResizeWidthControl(Content, Size);
+                ResizeHeightControl(Content, Size);
+                ResizeWidthControl(contentHeader, Size);
+                ResizeWidthControl(textURL, Size);
+                ResizeWidthControl(Tabs, Size);
+                RepositionWidthPosition(closeButton, Size);
+                RepositionWidthPosition(maximiseButton, Size);
+                RepositionWidthPosition(minimiseButton, Size);
+                lastSize = Size;
                 if (WindowState == FormWindowState.Maximized)
                 {
                     foreach (Control edge in edges)
@@ -154,7 +209,7 @@ namespace WindowsFormsApp1
             MouseUp += form_MouseUp;
 
             // bottom
-            UserControl uc1 = new UserControl()
+            UserControl bottomEdge = new UserControl()
             {
                 Anchor = (AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right),
                 Height = resizeWidth,
@@ -165,21 +220,21 @@ namespace WindowsFormsApp1
                 Cursor = Cursors.SizeNS,
                 Name = "bottom"
             };
-            uc1.MouseDown += form_MouseDown;
-            uc1.MouseUp += mouseUp;
-            uc1.MouseMove += delegate (object sender, MouseEventArgs e)
+            bottomEdge.MouseDown += form_MouseDown;
+            bottomEdge.MouseUp += mouseUp;
+            bottomEdge.MouseMove += delegate (object sender, MouseEventArgs e)
             {
                 if (isDragging && WindowState == FormWindowState.Normal)
                 {
                     Size = new Size(lastRectangle.Width, e.Y - lastRectangle.Y + Height);
                 }
             };
-            uc1.BringToFront();
-            edges.Add(uc1);
-            Controls.Add(uc1);
+            bottomEdge.BringToFront();
+            edges.Add(bottomEdge);
+            Controls.Add(bottomEdge);
 
             // right
-            UserControl uc2 = new UserControl()
+            UserControl rightEdge = new UserControl()
             {
                 Anchor = (AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom),
                 Height = DisplayRectangle.Height - (resizeWidth * 2),
@@ -190,21 +245,21 @@ namespace WindowsFormsApp1
                 Cursor = Cursors.SizeWE,
                 Name = "right"
             };
-            uc2.MouseDown += form_MouseDown;
-            uc2.MouseUp += mouseUp;
-            uc2.MouseMove += delegate (object sender, MouseEventArgs e)
+            rightEdge.MouseDown += form_MouseDown;
+            rightEdge.MouseUp += mouseUp;
+            rightEdge.MouseMove += delegate (object sender, MouseEventArgs e)
             {
                 if (isDragging && WindowState == FormWindowState.Normal)
                 {
                     Size = new Size(e.X - lastRectangle.X + Width, lastRectangle.Height);
                 }
             };
-            uc2.BringToFront();
-            edges.Add(uc2);
-            Controls.Add(uc2);
+            rightEdge.BringToFront();
+            edges.Add(rightEdge);
+            Controls.Add(rightEdge);
 
             // bottom-right
-            UserControl uc3 = new UserControl()
+            UserControl bottomRightEdge = new UserControl()
             {
                 Anchor = (AnchorStyles.Bottom | AnchorStyles.Right),
                 Height = resizeWidth,
@@ -215,21 +270,21 @@ namespace WindowsFormsApp1
                 Cursor = Cursors.SizeNWSE,
                 Name = "bottomRight"
             };
-            uc3.MouseDown += form_MouseDown;
-            uc3.MouseUp += mouseUp;
-            uc3.MouseMove += delegate (object sender, MouseEventArgs e)
+            bottomRightEdge.MouseDown += form_MouseDown;
+            bottomRightEdge.MouseUp += mouseUp;
+            bottomRightEdge.MouseMove += delegate (object sender, MouseEventArgs e)
             {
                 if (isDragging && WindowState == FormWindowState.Normal)
                 {
                     Size = new Size((e.X - lastRectangle.X + Width), (e.Y - lastRectangle.Y + Height));
                 }
             };
-            uc3.BringToFront();
-            edges.Add(uc3);
-            Controls.Add(uc3);
+            bottomRightEdge.BringToFront();
+            edges.Add(bottomRightEdge);
+            Controls.Add(bottomRightEdge);
 
             // top-right
-            UserControl uc4 = new UserControl()
+            UserControl topRightEdge = new UserControl()
             {
                 Anchor = (AnchorStyles.Top | AnchorStyles.Right),
                 Height = resizeWidth,
@@ -240,9 +295,9 @@ namespace WindowsFormsApp1
                 Cursor = Cursors.SizeNESW,
                 Name = "topRight"
             };
-            uc4.MouseDown += form_MouseDown;
-            uc4.MouseUp += mouseUp;
-            uc4.MouseMove += delegate (object sender, MouseEventArgs e)
+            topRightEdge.MouseDown += form_MouseDown;
+            topRightEdge.MouseUp += mouseUp;
+            topRightEdge.MouseMove += delegate (object sender, MouseEventArgs e)
             {
                 if (isDragging && WindowState == FormWindowState.Normal)
                 {
@@ -260,12 +315,12 @@ namespace WindowsFormsApp1
                     Size = new Size(e.X - lastRectangle.X + Width, new_height);
                 }
             };
-            uc4.BringToFront();
-            edges.Add(uc4);
-            Controls.Add(uc4);
+            topRightEdge.BringToFront();
+            edges.Add(topRightEdge);
+            Controls.Add(topRightEdge);
 
             // top
-            UserControl uc5 = new UserControl()
+            UserControl topEdge = new UserControl()
             {
                 Anchor = (AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right),
                 Height = resizeWidth,
@@ -276,9 +331,9 @@ namespace WindowsFormsApp1
                 Cursor = Cursors.SizeNS,
                 Name = "top"
             };
-            uc5.MouseDown += form_MouseDown;
-            uc5.MouseUp += mouseUp;
-            uc5.MouseMove += delegate (object sender, MouseEventArgs e)
+            topEdge.MouseDown += form_MouseDown;
+            topEdge.MouseUp += mouseUp;
+            topEdge.MouseMove += delegate (object sender, MouseEventArgs e)
             {
                 if (isDragging && WindowState == FormWindowState.Normal)
                 {
@@ -292,12 +347,12 @@ namespace WindowsFormsApp1
                     }
                 }
             };
-            uc5.BringToFront();
-            edges.Add(uc5);
-            Controls.Add(uc5);
+            topEdge.BringToFront();
+            edges.Add(topEdge);
+            Controls.Add(topEdge);
 
             // left
-            UserControl uc6 = new UserControl()
+            UserControl leftEdge = new UserControl()
             {
                 Anchor = (AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Bottom),
                 Height = DisplayRectangle.Height - (resizeWidth * 2),
@@ -308,9 +363,9 @@ namespace WindowsFormsApp1
                 Cursor = Cursors.SizeWE,
                 Name = "left"
             };
-            uc6.MouseDown += form_MouseDown;
-            uc6.MouseUp += mouseUp;
-            uc6.MouseMove += delegate (object sender, MouseEventArgs e)
+            leftEdge.MouseDown += form_MouseDown;
+            leftEdge.MouseUp += mouseUp;
+            leftEdge.MouseMove += delegate (object sender, MouseEventArgs e)
             {
                 if (isDragging && WindowState == FormWindowState.Normal)
                 {
@@ -325,12 +380,12 @@ namespace WindowsFormsApp1
                     
                 }
             };
-            uc6.BringToFront();
-            edges.Add(uc6);
-            Controls.Add(uc6);
+            leftEdge.BringToFront();
+            edges.Add(leftEdge);
+            Controls.Add(leftEdge);
 
             // bottom-left
-            UserControl uc7 = new UserControl()
+            UserControl bottomLeftEdge = new UserControl()
             {
                 Anchor = (AnchorStyles.Bottom | AnchorStyles.Left),
                 Height = resizeWidth,
@@ -341,9 +396,9 @@ namespace WindowsFormsApp1
                 Cursor = Cursors.SizeNESW,
                 Name = "bottomLeft"
             };
-            uc7.MouseDown += form_MouseDown;
-            uc7.MouseUp += mouseUp;
-            uc7.MouseMove += delegate (object sender, MouseEventArgs e)
+            bottomLeftEdge.MouseDown += form_MouseDown;
+            bottomLeftEdge.MouseUp += mouseUp;
+            bottomLeftEdge.MouseMove += delegate (object sender, MouseEventArgs e)
             {
                 if (isDragging && WindowState == FormWindowState.Normal)
                 {
@@ -362,12 +417,12 @@ namespace WindowsFormsApp1
                     Size = new Size(new_width, (e.Y - lastRectangle.Y + Height));
                 }
             };
-            uc7.BringToFront();
-            edges.Add(uc7);
-            Controls.Add(uc7);
+            bottomLeftEdge.BringToFront();
+            edges.Add(bottomLeftEdge);
+            Controls.Add(bottomLeftEdge);
 
             // top-left
-            UserControl uc8 = new UserControl()
+            UserControl topLeftEdge = new UserControl()
             {
                 Anchor = (AnchorStyles.Top | AnchorStyles.Left),
                 Height = resizeWidth,
@@ -378,9 +433,9 @@ namespace WindowsFormsApp1
                 Cursor = Cursors.SizeNWSE,
                 Name = "topLeft"
             };
-            uc8.MouseDown += form_MouseDown;
-            uc8.MouseUp += mouseUp;
-            uc8.MouseMove += delegate (object sender, MouseEventArgs e)
+            topLeftEdge.MouseDown += form_MouseDown;
+            topLeftEdge.MouseUp += mouseUp;
+            topLeftEdge.MouseMove += delegate (object sender, MouseEventArgs e)
             {
                 if (isDragging && WindowState == FormWindowState.Normal)
                 {
@@ -405,24 +460,25 @@ namespace WindowsFormsApp1
                 }
 
             };
-            uc8.BringToFront();
-            edges.Add(uc8);
-            this.Controls.Add(uc8);
+            topLeftEdge.BringToFront();
+            edges.Add(topLeftEdge);
+            this.Controls.Add(topLeftEdge);
         }
 
 
-        private void form_MouseDown(object sender, MouseEventArgs e)
+        public void form_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
             {
                 isDragging = true;
                 lastRectangle = new Rectangle(e.Location.X, e.Location.Y, this.Width, this.Height);
+                //Location = new Point(0, 0);
             }
         }
 
         private void form_MouseMove(object sender, MouseEventArgs e)
         {
-            if (snapped)
+            if (snapped && isDragging)
             {
                 snapped = false;
                 Size = oldSize;
@@ -435,10 +491,8 @@ namespace WindowsFormsApp1
             }
             if (isDragging && WindowState == FormWindowState.Normal)
             {
-                int x = (Location.X + (e.Location.X - lastRectangle.X));
-                int y = (Location.Y + (e.Location.Y - lastRectangle.Y));
-
-                Location = new Point(x, y);
+                DragControl(this, e, lastRectangle);
+                updateMergingApp();
             }
             else if (isDragging && WindowState == FormWindowState.Maximized)
             {
@@ -446,10 +500,19 @@ namespace WindowsFormsApp1
                 Location = new Point(MousePosition.X - Width/2, MousePosition.Y);
                 wasFullScreen = true;
             }
+            //I need a way either to trigger an event whenever the mouse moves or better yet send events between apps and a way to prevent apps from closing when the first app is closed.
+        }
+
+        private void DragControl(Control control, MouseEventArgs e, Rectangle rectangle)
+        {
+            int x = (control.Location.X + (e.Location.X - rectangle.X));
+            int y = (control.Location.Y + (e.Location.Y - rectangle.Y));
+
+            control.Location = new Point(x, y);
         }
 
         delegate void nearEdgeFunction(Rectangle rectangle);
-        private void checkEdgeResizing(object sender, MouseEventArgs e, nearEdgeFunction edgeFunction)
+        private void checkEdgeResizing(nearEdgeFunction edgeFunction)
         {
             bool[] nearEdges = new bool[4];
             Rectangle screenbounds = Screen.GetWorkingArea(MousePosition);
@@ -526,7 +589,6 @@ namespace WindowsFormsApp1
         private void drawRectangle(Rectangle rectangle, Color colour)
         {
             Control control = new Control();
-            
             Graphics graphics = control.CreateGraphics();
             Brush brush = new SolidBrush(colour);
             graphics.FillRectangle(brush, rectangle);
@@ -540,20 +602,36 @@ namespace WindowsFormsApp1
 
         private void form_MouseUp(object sender, MouseEventArgs e)
         {
-            isDragging = false;
-            nearEdgeFunction resizeWindow = delegate (Rectangle rectangle)
+            if (isMergingToApp)
             {
-                oldSize = Size;
-                if (this.edgeSnap == "top")
+                foreach (Tab tab in tabs) 
                 {
-                    this.WindowState = FormWindowState.Maximized;
+                    transferTabEvents(tab, this, appMergingTo);
                 }
-                else {
-                    Bounds = rectangle;
-                }
-                snapped = true;
-            };
-            checkEdgeResizing(sender, e, resizeWindow);
+                appMergingTo.ExtendTabs(tabs);
+                Console.WriteLine(tabs.Count);
+                isDead = true;
+                Close();
+                Console.WriteLine("close");
+            }
+            else
+            {
+                isDragging = false;
+                nearEdgeFunction resizeWindow = delegate (Rectangle rectangle)
+                {
+                    oldSize = Size;
+                    if (this.edgeSnap == "top")
+                    {
+                        this.WindowState = FormWindowState.Maximized;
+                    }
+                    else
+                    {
+                        Bounds = rectangle;
+                    }
+                    snapped = true;
+                };
+                checkEdgeResizing(resizeWindow);
+            }
         }
 
         // Browser
@@ -577,6 +655,7 @@ namespace WindowsFormsApp1
 
         private void browser_AddressChanged(object sender, AddressChangedEventArgs e)
         {
+            if (isDead) {  return; }
             if (sender == currentPage)
             {
                 setTextURL(e.Address);
@@ -631,6 +710,13 @@ namespace WindowsFormsApp1
         private void getColours()
         {
             uiSettings = new UISettings();
+            uiSettings.ColorValuesChanged += new Windows.Foundation.TypedEventHandler<UISettings, object>(colourChanged);
+            colourChanged(uiSettings, this);
+        }
+
+        private void colourChanged(UISettings uiSettings, object sender)
+        {
+            uiSettings = new UISettings();
             var windowsAccentColor = uiSettings.GetColorValue(UIColorType.Accent);
             accentColor = convertColor(windowsAccentColor);
             var windowsBackColor = uiSettings.GetColorValue(UIColorType.Background);
@@ -641,6 +727,10 @@ namespace WindowsFormsApp1
             {
                 cnt.BackColor = backColor;
                 cnt.ForeColor = foreColor;
+            }
+            foreach (Control edge in edges)
+            {
+                edge.BackColor = accentColor;
             }
         }
 
@@ -689,7 +779,7 @@ namespace WindowsFormsApp1
             };
 
             e.Graphics.DrawString("<", btn.Font, solidBrush, e.ClipRectangle, stringFormat);
-            solidBrush.Dispose();
+            solidBrush.Dispose(); 
             stringFormat.Dispose();
         }
 
@@ -697,8 +787,7 @@ namespace WindowsFormsApp1
 
         private void updateNavButtons()
         {
-            Console.WriteLine(historyStack.Count);
-            Console.WriteLine(historyStackIndex);
+            if (isDead) return;
             setBackButtonEnabled(historyStackIndex > 1);
             setForwardButtonEnabled(historyStackIndex < historyStack.Count);
             if (backButton.Enabled)
@@ -790,7 +879,7 @@ namespace WindowsFormsApp1
         {
             if (CheckUrl(textURL.Text))
             {
-                Console.WriteLine(textURL.Text);
+                Console.WriteLine("loading \"" + textURL.Text + "\"");
                 currentPage.LoadUrl(textURL.Text);
             }
             else
@@ -806,7 +895,7 @@ namespace WindowsFormsApp1
         {
             if (CheckUrl(textURL.Text))
             {
-                searchIcon.Text = "W";
+                searchIcon.Text = "🌐";
             }
             else
             {
@@ -831,6 +920,7 @@ namespace WindowsFormsApp1
         //buttons
         private void closeButton_Click(object sender, EventArgs e)
         {
+            isDead = true;
             Close();
         }
 
@@ -909,12 +999,13 @@ namespace WindowsFormsApp1
 
         private void updateTabs()
         {
+            if (isDead) return;
             clearTabs();
             int currentXPos = 0;
             foreach (Tab tab in tabs) 
             {
                 Button btn = tab.GetButton();
-                btn.Location = new Point(currentXPos, 0);
+                changeBtnLocation(btn, new Point(currentXPos, 0));
                 addBtnControl(btn);
                 currentXPos += btn.Width;
             }
@@ -922,19 +1013,44 @@ namespace WindowsFormsApp1
             setNewTabButtonLocation(new Point(currentXPos, newTabBtn.Location.Y));
         }
 
+        delegate void SetButtonPointCallback(Button button, Point point);
+        private void changeBtnLocation(Button button, Point point)
+        {
+            if (button.InvokeRequired)
+            {
+                var d = new SetButtonPointCallback(changeBtnLocation);
+                button.Invoke(d, new object[] { button, point });
+            }
+            else
+            {
+                button.Location = point;
+            }
+        }
+
         delegate void SetButtonCallback(Button button);
         private void addBtnControl(Button button)
         {
-            if (Tabs.InvokeRequired)
+            if (Tabs.InvokeRequired || button.InvokeRequired)
             {
                 var d = new SetButtonCallback(addBtnControl);
-                textURL.Invoke(d, new object[] { button });
+                if (IsHandleCreated)
+                {   
+                    Tabs.Invoke(d, new object[] { button });
+                }
+                else
+                {
+                    Action invokeTabs = ()=>Tabs.Invoke(d, new object[] { button });
+                    needsHandle.Add(invokeTabs);
+                }
             }
             else
             {
                 Tabs.Controls.Add(button);
             }
         }
+
+        delegate void SetTabsCallback(List<Tab> tabs);
+
 
         delegate void SetPointCallback(Point point);
         private void setNewTabButtonLocation(Point point)
@@ -953,10 +1069,10 @@ namespace WindowsFormsApp1
         delegate void SetVoidCallback();
         private void clearTabs()
         {
-            if (newTabBtn.InvokeRequired)
+            if (Tabs.InvokeRequired)
             {
                 var d = new SetVoidCallback(clearTabs);
-                newTabBtn.Invoke(d, new object[] {  });
+                Tabs.Invoke(d, new object[] {  });
             }
             else
             {
@@ -969,7 +1085,10 @@ namespace WindowsFormsApp1
             Tab newTab = new Tab(tab, updateTabs);
 
             Button btn = newTab.GetButton();
-            btn.Click += new EventHandler(changeTabsButton);
+            btn.MouseDown += new MouseEventHandler(TabsButtonMouseDown);
+            btn.MouseUp += new MouseEventHandler(TabsButtonMouseUp);
+            btn.MouseMove += new MouseEventHandler(TabsButtonMouseMove);
+
             btn.ForeColor = foreColor;
             btn.BackColor = backColor;
 
@@ -982,17 +1101,206 @@ namespace WindowsFormsApp1
             return newTab;
         }
 
-        private void changeTabsButton(object sender, EventArgs e)
+        private Tab getTabsButton(Button btn)
         {
-            
-            Button btn = (Button)sender;
-            Console.WriteLine(btn.Text);
-            bool checkButtons(Tab t)
+            bool checkTabButtons(Tab testTab)
             {
-                return (t.GetButton() == btn);
+                return (testTab.GetButton() == btn);
             }
-            Tab tab = tabs.Find(checkButtons);
-            changeTabs(tab);
+            Tab tab = tabs.Find(checkTabButtons);
+            return tab;
+        }
+
+        private void TabsButtonMouseMove(object sender, MouseEventArgs e)
+        {
+            Tab tab = getTabsButton((Button)sender);
+            if (tab != null && tab.isMouseDown)
+            {
+                tab.isDragging = true;
+                tab.isMouseDown = false;
+                List<Tab> newTabList = new List<Tab>() 
+                { 
+                    tab 
+                };
+                Main newApp = new Main();
+                transferTabEvents(tab, this, newApp);
+                
+                closeTab(tab.GetCloseButton(), e);
+
+                //popup.isDragging = true;
+                //popup.lastRectangle = new Rectangle(10, 10, popup.Width, popup.Height);
+                newApp.Load += delegate
+                {
+                    newApp.BringToFront();
+                    int X = MousePosition.X;
+                    int Y = MousePosition.Y;;
+                    newApp.Location = new Point(X - 10, Y - 10);
+                    Cursor.Position = new Point(X, Y);
+                    SendMessage(newApp.Handle, (int)WMessages.WM_LBUTTONDOWN, 0, MAKELPARAM(0, 0));
+                    //https://stackoverflow.com/questions/19237034/c-sharp-need-to-psuedo-click-a-window
+                    Console.WriteLine("loaded");
+                };
+                newApp.Text = Application.OpenForms.Count.ToString();
+                newApp.Show();
+                newApp.SetTabs(newTabList);
+                MouseEventArgs eventArgs = new MouseEventArgs(MouseButtons.Left, 1, 10, 10, 0);
+                Console.WriteLine("creation");
+
+                //popup.Location = new Point(MousePosition.X - 10, MousePosition.Y - 10);
+                //popup.BringToFront();
+                //popup.isDragging = true;
+                //popup.lastRectangle = new Rectangle(10, 10, popup.Width, popup.Height);
+                //popup.DoMouseClick();
+            }
+        }
+
+        public void transferTabEvents(Tab tab, Main fromApp, Main toApp)
+        {
+            tab.GetButton().MouseDown -= fromApp.TabsButtonMouseDown;
+            tab.GetButton().MouseDown += new MouseEventHandler(toApp.TabsButtonMouseDown);
+            tab.GetButton().MouseMove -= fromApp.TabsButtonMouseMove;
+            tab.GetButton().MouseMove += new MouseEventHandler(toApp.TabsButtonMouseMove);
+            tab.GetButton().MouseUp -= fromApp.TabsButtonMouseUp;
+            tab.GetButton().MouseUp += new MouseEventHandler(toApp.TabsButtonMouseUp);
+            tab.GetCloseButton().Click -= fromApp.closeTab;
+            tab.GetCloseButton().Click += new EventHandler(toApp.closeTab);
+        }
+
+        public void updateMergingApp()
+        {
+            //getFrontmostApp(appsHoveringOver);
+            Form secondHighestForm = GetSecondHighestWindow(MousePosition);
+            
+            if (secondHighestForm == null)
+            {
+                appMergingTo = null;
+                isMergingToApp = false;
+                Opacity = 1;
+            }
+            else
+            {
+                appMergingTo = (Main)secondHighestForm;
+                isMergingToApp = true;
+                Opacity = 0.8;
+            }
+        }
+
+        private Form GetSecondHighestWindow(Point position)
+        {
+            var openForms = Application.OpenForms.Cast<Form>()
+                .Where(f => f.Visible 
+                && !f.WindowState.Equals(FormWindowState.Minimized) 
+                && f.GetType() == typeof(Main) 
+                && PointInForm(position, f));
+            var openApps = openForms.Cast<Main>()
+                .OrderByDescending(f => f.lastFocused);
+            if (openApps.Count() < 2)
+            {
+                return null;
+            }
+            else
+            {
+                //Console.WriteLine(openForms.ElementAtOrDefault(1).Text);
+                //Console.WriteLine(openForms.ElementAtOrDefault(1).DisplayRectangle);
+                return openApps.ElementAtOrDefault(1); // Get the second element from the sorted list
+            }
+        }
+
+        public bool PointInForm(Point position, Form form)
+        {
+            Rectangle rectangle = new Rectangle(form.Left, form.Top, form.Width, form.Height);
+            return PointInRectangle(position, rectangle);
+        }
+
+        public bool PointInRectangle(Point point, Rectangle rectangle)
+        {
+            return point.X >= rectangle.X
+                && point.X <= rectangle.X + rectangle.Width
+                && point.Y >= rectangle.Y
+                && point.Y <= rectangle.Y + rectangle.Height;
+        }
+
+        public void DoMouseClick()
+        {
+            //https://stackoverflow.com/questions/2416748/how-do-you-simulate-mouse-click-in-c
+            //Call the imported function with the cursor's current position
+            uint X = (uint)Cursor.Position.X;
+            uint Y = (uint)Cursor.Position.Y;
+            mouse_event(MOUSEEVENTF_LEFTDOWN, X, Y, 0, 0);
+        }
+
+        private int MAKELPARAM(int p, int p_2)
+        {
+            return ((p_2 << 16) | (p & 0xFFFF));
+        }
+
+        private void createAppPanel(Tab tab)
+        {
+            Button btn = tab.GetButton();
+            ChromiumWebBrowser browser = tab.GetBrowser();
+            Panel contentPanel = new Panel();
+            Panel tabPanel = new Panel();
+            tabPanel.Size = btn.Parent.Size;
+            tabPanel.BringToFront();
+            contentPanel.Size = browser.Parent.Size;
+            contentPanel.BringToFront();
+            btn.Parent.Controls.Remove(btn);
+            browser.Parent.Controls.Remove(browser);
+            tabPanel.Controls.Add(btn);
+            contentPanel.Controls.Add(browser);
+            Controls.Add(tabPanel);
+            Controls.Add(contentPanel);
+            appPanels.Add((tabPanel, contentPanel));
+        }
+
+        public void SetTabs(List<Tab> newTabList)
+        {
+            tabs = newTabList;
+            updateTabs();
+            Content.Controls.Clear();
+            foreach (Tab tab in tabs)
+            {
+                Content.Controls.Add(tab.GetBrowser());
+            }
+            changeTabs(tabs[tabs.Count - 1]);
+        }
+
+        public void ExtendTabs(List<Tab> newTabList)
+        {
+            tabs.AddRange(newTabList);
+            updateTabs();
+            foreach (Tab tab in newTabList)
+            {
+                Content.Controls.Add(tab.GetBrowser());
+            }
+            if (tabs.Count > 0)
+            {
+                changeTabs(tabs[tabs.Count - 1]);
+            }
+            Console.WriteLine("tab count:");
+            Console.WriteLine(tabs.Count);
+        }
+
+        private void ResetPanelPositions()
+        {
+
+        }
+
+        private void TabsButtonMouseUp(object sender, MouseEventArgs e)
+        {
+            Tab tab = getTabsButton((Button)sender);
+            tab.isMouseDown = false;
+            if (!tab.isDragging)
+            {
+                changeTabs(tab);
+            }
+            tab.isDragging = false;
+        }
+
+        private void TabsButtonMouseDown(object sender, MouseEventArgs e)
+        {
+            Tab tab = getTabsButton((Button)sender);
+            tab.isMouseDown = true;
         }
 
         private void changeTabs(Tab tab)
@@ -1014,14 +1322,13 @@ namespace WindowsFormsApp1
         private void closeTab(object sender, EventArgs e)
         {
             Button btn = (Button)sender;
-            Console.WriteLine(btn.Text);
             bool checkButton(Tab t)
             {
                 return (t.GetCloseButton() == btn);
             }
             Tab tab = tabs.Find(checkButton);
             tabs.Remove(tab);
-            Content.Controls.Remove(tab.GetBrowser());
+            Content.Controls.Remove(tab.GetBrowser());            
             updateTabs();
             if (currentTab == tab)
             {
@@ -1030,14 +1337,26 @@ namespace WindowsFormsApp1
                     if (Content.Controls.GetChildIndex(browser) == 0)
                     {
                         currentPage = (ChromiumWebBrowser)browser;
-                        bool checkBrowser(Tab t)
+                        bool checkBrowser(Tab testTab)
                         {
-                            return (t.GetBrowser() == currentPage);
+                            return (testTab.GetBrowser() == currentPage);
                         }
                         Tab currentTab = tabs.Find(checkBrowser);
-                        changeTabs(currentTab);
+                        if (currentTab != null)
+                        {
+                            changeTabs(currentTab);
+                        }
                     }
                 }
+            }
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            base.OnFormClosed(e);
+            if (Application.OpenForms.Count == 0)
+            {
+                Application.Exit(); // Close the application when all windows are closed
             }
         }
     }

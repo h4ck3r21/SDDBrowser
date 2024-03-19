@@ -8,9 +8,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace SDDBrowser
+namespace SDDTabs
 {
-    internal class Tab
+    public class Tab
     {
         ChromiumWebBrowser browser;
         Button button;
@@ -18,6 +18,9 @@ namespace SDDBrowser
         List<string> history = new List<string>();
         int historyIndex = 0;
         public delegate void voidFunction();
+        public bool isDragging = false;
+        public bool isMouseDown = false;
+        public Rectangle lastRectangle = new Rectangle();
         voidFunction updateTabs;
 
         public Tab(ChromiumWebBrowser browser, voidFunction updateTabs) 

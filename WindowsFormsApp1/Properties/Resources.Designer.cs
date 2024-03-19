@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace SDDBrowser.Properties {
+namespace SDDTabs.Properties {
     using System;
     
     
