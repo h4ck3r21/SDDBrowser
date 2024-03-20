@@ -12,13 +12,13 @@ using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using CefSharp;
 using CefSharp.WinForms;
+using SDDBrowser;
 using SDDPopup;
 using SDDTabs;
 using Windows.System;
 using Windows.UI.Input;
 using Windows.UI.ViewManagement;
 using Windows.UI.Xaml.Controls.Primitives;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace SDDWebBrowser
 {
@@ -29,23 +29,16 @@ namespace SDDWebBrowser
             InitializeComponent();
         }
 
-        ChromiumWebBrowser currentPage; //to purge
-        string defaultURL = "www.google.com"; // to purge
         public List<string> domains;
-        List<string> historyStack; // to purge
-        List<Tab> tabs = new List<Tab>(); // to purge
-        Tab currentTab; // to purge
-        List<(Panel, Panel)> appPanels = new List<(Panel, Panel)>(); // to purge
+        List<ContentPanel> contentPanels = new List<ContentPanel>();
         UserControl[] triggers;
         bool isMergingToApp = false;
         public List<Action> needsHandle = new List<Action>();
         Main appMergingTo;
+        string positionMergingTo;
         long lastFocused = 0;
         public bool isDead;
         int debug = 0;
-        string lastSite; // purger from here
-        int historyStackIndex;
-        bool fromHistory; // to here
         Size lastSize; 
         bool loaded;
         protected bool isDragging = false;
@@ -92,7 +85,11 @@ namespace SDDWebBrowser
             Console.WriteLine("started new app");
             Activated += new EventHandler(form_gotFocus);
             lastFocused = DateTime.UtcNow.Ticks;
-            generateNewTab(defaultURL);
+
+            ContentPanel contentPanel = new ContentPanel(this, "top");
+            contentPanels.Add(contentPanel);
+            contentPanel.generateNewTab(ContentPanel.defaultURL);
+            newTabBtn.Click += new EventHandler(contentPanel.newTabBtn_Click);
 
             getColours();
 
@@ -110,8 +107,7 @@ namespace SDDWebBrowser
 
             initialiseFormEdge();
             initialiseTriggers();
-            updateNavButtons();
-            appPanels.Add((Tabs, Content));
+            contentPanel.updateNavButtons();           
         }
 
         protected override void CreateHandle()
@@ -127,27 +123,6 @@ namespace SDDWebBrowser
         {
             lastFocused = DateTime.UtcNow.Ticks;
             Console.WriteLine($"{Text} Got Focus: {lastFocused}");
-        }
-
-        private void generateNewTab(string Url) // to purge
-        {
-            currentPage = new ChromiumWebBrowser();
-            currentPage.LoadUrl(Url);
-            //Content.Controls.Clear();
-            Content.Controls.Add(currentPage);
-            currentPage.BringToFront();
-            currentPage.Dock = DockStyle.Fill;
-            currentPage.AddressChanged += new EventHandler<AddressChangedEventArgs>(browser_AddressChanged);
-            currentPage.FrameLoadEnd += new EventHandler<FrameLoadEndEventArgs>(browser_FrameLoadEnd);
-            currentPage.FrameLoadStart += new EventHandler<FrameLoadStartEventArgs>(browser_FrameLoadStart);
-            currentPage.TitleChanged += delegate (object titleSender, TitleChangedEventArgs titleArgs)
-            {
-                currentPage.Name = titleArgs.Title;
-            };
-
-            currentTab = addTab(currentPage);
-            changeTabs(currentTab);
-
         }
 
         // https://stackoverflow.com/questions/22780571/scale-windows-forms-window
@@ -642,16 +617,28 @@ namespace SDDWebBrowser
             isDragging = false;
         }
 
+        private void mergeContentPanel(string position)
+        {
+            ContentPanel panelMergingFrom = contentPanels.Find(p => p.position == position);
+            List<Tab> tabs = panelMergingFrom.tabs;
+            foreach (Tab tab in tabs)
+            {
+                transferTabEvents(tab, this, appMergingTo);
+            }
+            ContentPanel panelMergingTo = appMergingTo.contentPanels.Find(p => p.position == position);
+            panelMergingTo.ExtendTabs(tabs);
+            Console.WriteLine(tabs.Count);
+        }
+
         private void form_MouseUp(object sender, MouseEventArgs e)
         {
             if (isMergingToApp)
             {
-                foreach (Tab tab in tabs) 
+                foreach (ContentPanel contentPanel in contentPanels)
                 {
-                    transferTabEvents(tab, this, appMergingTo);
+                    mergeContentPanel(contentPanel.position);
                 }
-                appMergingTo.ExtendTabs(tabs);
-                Console.WriteLine(tabs.Count);
+                
                 isDead = true;
                 Close();
                 Console.WriteLine("close");
@@ -676,70 +663,8 @@ namespace SDDWebBrowser
             }
         }
 
-        // Browser - to purge
-        private void OnBrowserLoadError(object sender, LoadErrorEventArgs e) // https://github.com/cefsharp/CefSharp.MinimalExample/blob/master/CefSharp.MinimalExample.WinForms/BrowserForm.cs#L32
-        {
-            //Actions that trigger a download will raise an aborted error.
-            //Aborted is generally safe to ignore
-            if (e.ErrorCode == CefErrorCode.Aborted)
-            {
-                return;
-            }
-
-            var errorHtml = string.Format("<html><body><h2>Failed to load URL {0} with error {1} ({2}).</h2></body></html>",
-                                              e.FailedUrl, e.ErrorText, e.ErrorCode);
-
-            _ = e.Browser.SetMainFrameDocumentContentAsync(errorHtml);
-
-            //AddressChanged isn't called for failed Urls so we need to manually update the Url TextBox
-            textURL.Text = e.FailedUrl;
-        }
-
-        private void browser_AddressChanged(object sender, AddressChangedEventArgs e)
-        {
-            if (isDead) {  return; }
-            if (sender == currentPage)
-            {
-                setTextURL(e.Address);
-            }
-            if (historyStack.Count == 0 || e.Address != lastSite)
-            {
-                if (!fromHistory)
-                {
-                    if (historyStackIndex < historyStack.Count)
-                    {
-                        historyStack.RemoveRange(historyStackIndex - 1, historyStack.Count - historyStackIndex);
-                    }
-                    if (historyStack.Count == historyStackIndex)
-                    {
-                        historyStack.Add(e.Address);
-                        historyStackIndex++;
-                        currentTab.setHistoryIndex(historyStackIndex);
-                    }
-                }
-                fromHistory = false;
-                updateNavButtons();
-
-            }
-            lastSite = e.Address;
-        }
-
-        
-
-        private void browser_FrameLoadEnd(object sender, FrameLoadEndEventArgs e)
-        {
-
-        }
-
-        private void browser_FrameLoadStart(object sender, FrameLoadStartEventArgs e)
-        {
-
-        }
-
-        //purge to here
-
         delegate void SetTextCallback(string text);
-        public void setTextURL(string text) // not purge
+        public void setTextURL(string text)
         {
             if (textURL.InvokeRequired)
             {
@@ -797,172 +722,6 @@ namespace SDDWebBrowser
 
         }
 
-        private void forwardButton_Paint(object sender, PaintEventArgs e)
-        {
-            //https://stackoverflow.com/questions/72644619/how-to-change-the-forecolor-of-a-disabled-button
-            Button btn = (Button)sender;
-            var solidBrush = new SolidBrush(btn.ForeColor);
-            var stringFormat = new StringFormat
-            {
-                Alignment = StringAlignment.Center,
-                LineAlignment = StringAlignment.Center
-            };
-
-            e.Graphics.DrawString(">", btn.Font, solidBrush, e.ClipRectangle, stringFormat);
-            solidBrush.Dispose();
-            stringFormat.Dispose();
-        }
-
-        private void backButton_Paint(object sender, PaintEventArgs e)
-        {
-            //https://stackoverflow.com/questions/72644619/how-to-change-the-forecolor-of-a-disabled-button
-            Button btn = (Button)sender;
-            var solidBrush = new SolidBrush(btn.ForeColor);
-            var stringFormat = new StringFormat
-            {
-                Alignment = StringAlignment.Center,
-                LineAlignment = StringAlignment.Center
-            };
-
-            e.Graphics.DrawString("<", btn.Font, solidBrush, e.ClipRectangle, stringFormat);
-            solidBrush.Dispose(); 
-            stringFormat.Dispose();
-        }
-
-        // navigation
-
-        private void updateNavButtons()
-        {
-            if (isDead) return;
-            setBackButtonEnabled(historyStackIndex > 1);
-            setForwardButtonEnabled(historyStackIndex < historyStack.Count);
-            if (backButton.Enabled)
-            {
-                setBackButtonForeColor(foreColor);
-            }
-            else
-            {
-                setBackButtonForeColor(Color.Gray);
-            }
-
-            if (forwardButton.Enabled)
-            {
-                setForwardButtonForeColor(foreColor);
-            }
-            else
-            {
-                setForwardButtonForeColor(Color.Gray);
-            }
-        }
-
-        delegate void SetBoolCallback(bool enabled);
-        private void setBackButtonEnabled(bool enabled)
-        {
-            if (backButton.InvokeRequired)
-            {
-                var d = new SetBoolCallback(setBackButtonEnabled);
-                backButton.Invoke(d, new object[] { enabled });
-            }
-            else
-            {
-                backButton.Enabled = enabled;
-            }
-        }
-
-        private void setForwardButtonEnabled(bool enabled)
-        {
-            if (forwardButton.InvokeRequired)
-            {
-                var d = new SetBoolCallback(setForwardButtonEnabled);
-                forwardButton.Invoke(d, new object[] { enabled });
-            }
-            else
-            {
-                forwardButton.Enabled = enabled;
-            }
-        }
-
-        delegate void SetColorCallback(Color color);
-
-        private void setBackButtonForeColor(Color color)
-        {
-            if (backButton.InvokeRequired)
-            {
-                var d = new SetColorCallback(setBackButtonForeColor);
-                backButton.Invoke(d, new object[] { color });
-            }
-            else
-            {
-                backButton.ForeColor = color;
-                backButton.UseVisualStyleBackColor = true;
-            }
-        }
-
-        private void setForwardButtonForeColor(Color color)
-        {
-            if (forwardButton.InvokeRequired)
-            {
-                var d = new SetColorCallback(setForwardButtonForeColor);
-                forwardButton.Invoke(d, new object[] { color });
-            }
-            else
-            {
-                forwardButton.ForeColor = color;
-                forwardButton.UseVisualStyleBackColor = true;
-            }
-        }
-
-        private void textURL_KeyDown(object sender, KeyEventArgs e)
-        {
-
-            if (e.KeyCode == Keys.Enter)
-            {
-                enterText();
-            }
-        }
-
-        private void enterText()
-        {
-            if (CheckUrl(textURL.Text))
-            {
-                Console.WriteLine("loading \"" + textURL.Text + "\"");
-                currentPage.LoadUrl(textURL.Text);
-            }
-            else
-            {
-                // NameValueCollection queryString = HttpUtility.ParseQueryString(string.Empty);
-                // queryString.Add("q", textURL.Text);  // https://stackoverflow.com/questions/829080/how-to-build-a-query-string-for-a-url-in-c
-                string queryString = Uri.EscapeDataString(textURL.Text); // https://stackoverflow.com/questions/14574695/converting-a-string-to-a-url-safe-string-for-twilio
-                currentPage.LoadUrl("https://www.google.com/search?q=" + queryString);
-            }
-        }
-
-        private void textURL_TextChanged(object sender, EventArgs e)
-        {
-            if (CheckUrl(textURL.Text))
-            {
-                searchIcon.Text = "🌐";
-            }
-            else
-            {
-                searchIcon.Text = "G";
-            }
-        }
-
-        protected bool CheckUrl(string url)
-        {
-            string urlWithProtocol = "http://" + url;
-            bool result = Uri.IsWellFormedUriString(url.ToString(), UriKind.Absolute)
-                || (Uri.IsWellFormedUriString(urlWithProtocol, UriKind.Absolute)
-                && (url.EndsWith("/") 
-                || (domains.Any(x => url.Contains(x))
-                && char.IsLetterOrDigit(url[0]))
-                || Regex.IsMatch(url, @"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")))
-                || Directory.Exists(url);
-            return result;
-        }
-
-
         //buttons
         private void closeButton_Click(object sender, EventArgs e)
         {
@@ -980,42 +739,7 @@ namespace SDDWebBrowser
             closeButton.BackColor = backColor;
         }
 
-        private void backButton_Click(object sender, EventArgs e)
-        {
-            if (historyStackIndex > 1)
-            {
-                historyStackIndex--;
-                currentTab.setHistoryIndex(historyStackIndex);
-                fromHistory = true;
-                currentPage.LoadUrl(historyStack[historyStackIndex - 1]);
-            }
-        }
-
-        private void backButton_Hover(object sender, EventArgs e)
-        {
-            closeButton.BackColor = Color.Gray;
-        }
-
-        private void backButton_Leave(object sender, EventArgs e)
-        {
-            closeButton.BackColor = backColor;
-        }
-
-        private void forwardButton_Click(object sender, EventArgs e)
-        {
-            if (historyStackIndex < historyStack.Count())
-            {
-                historyStackIndex++;
-                currentTab.setHistoryIndex(historyStackIndex);
-                fromHistory = true;
-                currentPage.LoadUrl(historyStack[historyStackIndex - 1]);
-            }
-        }
-
-        private void reloadButton_Click(object sender, EventArgs e)
-        {
-            currentPage.Reload();
-        }
+        
 
         private void maximiseButton_Click(object sender, EventArgs e)
         {
@@ -1043,120 +767,6 @@ namespace SDDWebBrowser
 
         // tabs
 
-        private void updateTabs() //to purge from here
-        {
-            if (isDead) return;
-            clearTabs();
-            int currentXPos = 0;
-            foreach (Tab tab in tabs) 
-            {
-                Button btn = tab.GetButton();
-                changeBtnLocation(btn, new Point(currentXPos, 0));
-                addBtnControl(btn);
-                currentXPos += btn.Width;
-            }
-            addBtnControl(newTabBtn);
-            setNewTabButtonLocation(new Point(currentXPos, newTabBtn.Location.Y));
-        }
-
-        delegate void SetButtonPointCallback(Button button, Point point);
-        private void changeBtnLocation(Button button, Point point)
-        {
-            if (button.InvokeRequired)
-            {
-                var d = new SetButtonPointCallback(changeBtnLocation);
-                button.Invoke(d, new object[] { button, point });
-            }
-            else
-            {
-                button.Location = point;
-            }
-        }
-
-        delegate void SetButtonCallback(Button button);
-        private void addBtnControl(Button button)
-        {
-            if (Tabs.InvokeRequired || button.InvokeRequired)
-            {
-                var d = new SetButtonCallback(addBtnControl);
-                if (IsHandleCreated)
-                {   
-                    Tabs.Invoke(d, new object[] { button });
-                }
-                else
-                {
-                    Action invokeTabs = ()=>Tabs.Invoke(d, new object[] { button });
-                    needsHandle.Add(invokeTabs);
-                }
-            }
-            else
-            {
-                Tabs.Controls.Add(button);
-            }
-        }
-
-        delegate void SetTabsCallback(List<Tab> tabs);
-
-
-        delegate void SetPointCallback(Point point);
-        private void setNewTabButtonLocation(Point point)
-        {
-            if (newTabBtn.InvokeRequired)
-            {
-                var d = new SetPointCallback(setNewTabButtonLocation);
-                newTabBtn.Invoke(d, new object[] { point });
-            }
-            else
-            {
-                newTabBtn.Location = point;
-            }
-        }
-
-        delegate void SetVoidCallback();
-        private void clearTabs()
-        {
-            if (Tabs.InvokeRequired)
-            {
-                var d = new SetVoidCallback(clearTabs);
-                Tabs.Invoke(d, new object[] {  });
-            }
-            else
-            {
-                Tabs.Controls.Clear();
-            }
-        }
-
-        private Tab addTab(ChromiumWebBrowser tab)
-        {
-            Tab newTab = new Tab(tab, updateTabs);
-
-            Button btn = newTab.GetButton();
-            btn.MouseDown += new MouseEventHandler(TabsButtonMouseDown);
-            btn.MouseUp += new MouseEventHandler(TabsButtonMouseUp);
-            btn.MouseMove += new MouseEventHandler(TabsButtonMouseMove);
-
-            btn.ForeColor = foreColor;
-            btn.BackColor = backColor;
-
-            Button closeBtn = newTab.GetCloseButton();
-            closeBtn.Click += new EventHandler(closeTab);
-
-            Tabs.Controls.Add(btn);
-            tabs.Add(newTab);
-            updateTabs();
-            return newTab;
-        }
-
-        private Tab getTabsButton(Button btn)
-        {
-            bool checkTabButtons(Tab testTab)
-            {
-                return (testTab.GetButton() == btn);
-            }
-            Tab tab = tabs.Find(checkTabButtons);
-            return tab;
-        }
-        // purge to here
         public void TabsButtonMouseMove(object sender, MouseEventArgs e)
         {
             Tab tab = getTabsButton((Button)sender);
@@ -1171,7 +781,7 @@ namespace SDDWebBrowser
                 Main newApp = new Main();
                 transferTabEvents(tab, this, newApp);
                 
-                closeTab(tab.GetCloseButton(), e);
+                getContentPanelFromTab(tab).closeTab(tab.GetCloseButton(), e);
 
                 //popup.isDragging = true;
                 //popup.lastRectangle = new Rectangle(10, 10, popup.Width, popup.Height);
@@ -1185,10 +795,10 @@ namespace SDDWebBrowser
                     SendMessage(newApp.Handle, (int)WMessages.WM_LBUTTONDOWN, 0, MAKELPARAM(0, 0));
                     //https://stackoverflow.com/questions/19237034/c-sharp-need-to-psuedo-click-a-window
                     Console.WriteLine("loaded");
+                    newApp.contentPanels[0].SetTabs(newTabList);
                 };
                 newApp.Text = Application.OpenForms.Count.ToString();
                 newApp.Show();
-                newApp.SetTabs(newTabList);
                 MouseEventArgs eventArgs = new MouseEventArgs(MouseButtons.Left, 1, 10, 10, 0);
                 Console.WriteLine("creation");
 
@@ -1200,16 +810,36 @@ namespace SDDWebBrowser
             }
         }
 
+        private Tab getTabsButton(Button btn)
+        {
+            Tab tab;
+            foreach (ContentPanel panel in contentPanels)
+            {
+                tab = panel.getTabsButton(btn);
+                if (tab != null)
+                {
+                    return tab;
+                }
+            }
+            throw new ArgumentException();
+        }
+
+        private ContentPanel getContentPanelFromTab(Tab tab)
+        {
+            foreach (ContentPanel panel in contentPanels)
+            {
+                if (panel.tabs.Contains(tab))
+                {
+                    return panel;
+                }
+            }
+            throw new ArgumentException();
+        }
+
         public void transferTabEvents(Tab tab, Main fromApp, Main toApp)
         {
-            tab.GetButton().MouseDown -= fromApp.TabsButtonMouseDown;
-            tab.GetButton().MouseDown += new MouseEventHandler(toApp.TabsButtonMouseDown);
             tab.GetButton().MouseMove -= fromApp.TabsButtonMouseMove;
             tab.GetButton().MouseMove += new MouseEventHandler(toApp.TabsButtonMouseMove);
-            tab.GetButton().MouseUp -= fromApp.TabsButtonMouseUp;
-            tab.GetButton().MouseUp += new MouseEventHandler(toApp.TabsButtonMouseUp);
-            tab.GetCloseButton().Click -= fromApp.closeTab;
-            tab.GetCloseButton().Click += new EventHandler(toApp.closeTab);
         }
 
         public void updateMergingApp()
@@ -1291,128 +921,6 @@ namespace SDDWebBrowser
         {
             return ((p_2 << 16) | (p & 0xFFFF));
         }
-
-        private void createAppPanel(Tab tab, Rectangle area) //to purge
-        {
-            Button btn = tab.GetButton();
-            ChromiumWebBrowser browser = tab.GetBrowser();
-            Panel contentPanel = new Panel();
-            Panel tabPanel = new Panel();
-            tabPanel.Height = Tabs.Height;
-            tabPanel.Width = area.Width;
-            tabPanel.Location = new Point(area.X, area.Y);
-            contentPanel.Width = area.Width;
-            contentPanel.Height = area.Height - tabPanel.Height;
-            contentPanel.Location = new Point(area.X, area.Y + tabPanel.Height);
-            tabPanel.BringToFront();
-            contentPanel.Size = browser.Parent.Size;
-            contentPanel.BringToFront();
-            btn.Parent.Controls.Remove(btn);
-            browser.Parent.Controls.Remove(browser);
-            tabPanel.Controls.Add(btn);
-            contentPanel.Controls.Add(browser);
-            Controls.Add(tabPanel);
-            Controls.Add(contentPanel);
-            appPanels.Add((tabPanel, contentPanel));
-        }
-
-        public void SetTabs(List<Tab> newTabList) //to purge
-        {
-            tabs = newTabList;
-            updateTabs();
-            Content.Controls.Clear();
-            foreach (Tab tab in tabs)
-            {
-                Content.Controls.Add(tab.GetBrowser());
-            }
-            changeTabs(tabs[tabs.Count - 1]);
-        }
-
-        public void ExtendTabs(List<Tab> newTabList) //to purge
-        {
-            tabs.AddRange(newTabList);
-            updateTabs();
-            foreach (Tab tab in newTabList)
-            {
-                Content.Controls.Add(tab.GetBrowser());
-            }
-            if (tabs.Count > 0)
-            {
-                changeTabs(tabs[tabs.Count - 1]);
-            }
-            Console.WriteLine("tab count:");
-            Console.WriteLine(tabs.Count);
-        }
-
-        private void ResetPanelPositions()
-        {
-
-        }
-
-        private void TabsButtonMouseUp(object sender, MouseEventArgs e)
-        {
-            Tab tab = getTabsButton((Button)sender);
-            tab.isMouseDown = false;
-            if (!tab.isDragging)
-            {
-                changeTabs(tab);
-            }
-            tab.isDragging = false;
-        }
-
-        private void TabsButtonMouseDown(object sender, MouseEventArgs e)
-        {
-            Tab tab = getTabsButton((Button)sender);
-            tab.isMouseDown = true;
-        }
-
-        private void changeTabs(Tab tab)
-        {
-            currentPage = tab.GetBrowser();
-            currentTab = tab;
-            textURL.Text = tab.GetBrowser().Address;
-            tab.GetBrowser().BringToFront();
-            historyStack = tab.getHistory();
-            historyStackIndex = tab.getHistoryIndex();
-            updateNavButtons();
-        } 
-
-        private void newTabBtn_Click(object sender, EventArgs e)
-        {
-            generateNewTab(defaultURL); 
-        }
-
-        private void closeTab(object sender, EventArgs e)
-        {
-            Button btn = (Button)sender;
-            bool checkButton(Tab t)
-            {
-                return (t.GetCloseButton() == btn);
-            }
-            Tab tab = tabs.Find(checkButton);
-            tabs.Remove(tab);
-            Content.Controls.Remove(tab.GetBrowser());            
-            updateTabs();
-            if (currentTab == tab)
-            {
-                foreach (Control browser in Content.Controls)
-                {
-                    if (Content.Controls.GetChildIndex(browser) == 0)
-                    {
-                        currentPage = (ChromiumWebBrowser)browser;
-                        bool checkBrowser(Tab testTab)
-                        {
-                            return (testTab.GetBrowser() == currentPage);
-                        }
-                        Tab currentTab = tabs.Find(checkBrowser);
-                        if (currentTab != null)
-                        {
-                            changeTabs(currentTab);
-                        }
-                    }
-                }
-            }
-        } // purge until
 
         public Button getNewTabButton()
         {

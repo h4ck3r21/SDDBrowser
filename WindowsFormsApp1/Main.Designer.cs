@@ -106,7 +106,6 @@ namespace SDDWebBrowser
             this.reloadButton.TabIndex = 4;
             this.reloadButton.Text = "O";
             this.reloadButton.UseVisualStyleBackColor = true;
-            this.reloadButton.Click += new System.EventHandler(this.reloadButton_Click);
             // 
             // forwardButton
             // 
@@ -118,8 +117,6 @@ namespace SDDWebBrowser
             this.forwardButton.Size = new System.Drawing.Size(50, 49);
             this.forwardButton.TabIndex = 3;
             this.forwardButton.UseVisualStyleBackColor = true;
-            this.forwardButton.Click += new System.EventHandler(this.forwardButton_Click);
-            this.forwardButton.Paint += new System.Windows.Forms.PaintEventHandler(this.forwardButton_Paint);
             // 
             // backButton
             // 
@@ -131,8 +128,6 @@ namespace SDDWebBrowser
             this.backButton.Size = new System.Drawing.Size(50, 49);
             this.backButton.TabIndex = 2;
             this.backButton.UseVisualStyleBackColor = true;
-            this.backButton.Click += new System.EventHandler(this.backButton_Click);
-            this.backButton.Paint += new System.Windows.Forms.PaintEventHandler(this.backButton_Paint);
             // 
             // searchIcon
             // 
@@ -155,8 +150,6 @@ namespace SDDWebBrowser
             this.textURL.Size = new System.Drawing.Size(940, 32);
             this.textURL.TabIndex = 0;
             this.textURL.Text = "www.google.com";
-            this.textURL.TextChanged += new System.EventHandler(this.textURL_TextChanged);
-            this.textURL.KeyDown += new System.Windows.Forms.KeyEventHandler(this.textURL_KeyDown);
             // 
             // closeButton
             // 
@@ -208,7 +201,6 @@ namespace SDDWebBrowser
             this.newTabBtn.TabIndex = 0;
             this.newTabBtn.Text = "+";
             this.newTabBtn.UseVisualStyleBackColor = true;
-            this.newTabBtn.Click += new System.EventHandler(this.newTabBtn_Click);
             // 
             // Main
             // 
