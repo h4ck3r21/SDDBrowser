@@ -29,23 +29,24 @@ namespace SDDWebBrowser
             InitializeComponent();
         }
 
-        ChromiumWebBrowser currentPage;
-        string defaultURL = "www.google.com";
-        List<string> domains;
-        List<string> historyStack;
-        List<Tab> tabs = new List<Tab>();
-        Tab currentTab;
-        List<(Panel, Panel)> appPanels = new List<(Panel, Panel)>();
+        ChromiumWebBrowser currentPage; //to purge
+        string defaultURL = "www.google.com"; // to purge
+        public List<string> domains;
+        List<string> historyStack; // to purge
+        List<Tab> tabs = new List<Tab>(); // to purge
+        Tab currentTab; // to purge
+        List<(Panel, Panel)> appPanels = new List<(Panel, Panel)>(); // to purge
+        UserControl[] triggers;
         bool isMergingToApp = false;
-        List<Action> needsHandle = new List<Action>();
+        public List<Action> needsHandle = new List<Action>();
         Main appMergingTo;
         long lastFocused = 0;
-        bool isDead;
+        public bool isDead;
         int debug = 0;
-        string lastSite;
+        string lastSite; // purger from here
         int historyStackIndex;
-        bool fromHistory;
-        Size lastSize;
+        bool fromHistory; // to here
+        Size lastSize; 
         bool loaded;
         protected bool isDragging = false;
         bool wasFullScreen = false;
@@ -54,9 +55,9 @@ namespace SDDWebBrowser
         int edgeResizeWidth = 50;
         List<Control> edges = new List<Control>();
         UISettings uiSettings;
-        Color accentColor;
-        Color backColor;
-        Color foreColor;
+        public Color accentColor;
+        public Color backColor;
+        public Color foreColor;
         string edgeSnap = "None";
         Size oldSize;
         bool snapped = false;
@@ -108,6 +109,7 @@ namespace SDDWebBrowser
             loaded = true;
 
             initialiseFormEdge();
+            initialiseTriggers();
             updateNavButtons();
             appPanels.Add((Tabs, Content));
         }
@@ -127,7 +129,7 @@ namespace SDDWebBrowser
             Console.WriteLine($"{Text} Got Focus: {lastFocused}");
         }
 
-        private void generateNewTab(string Url)
+        private void generateNewTab(string Url) // to purge
         {
             currentPage = new ChromiumWebBrowser();
             currentPage.LoadUrl(Url);
@@ -465,6 +467,46 @@ namespace SDDWebBrowser
             this.Controls.Add(topLeftEdge);
         }
 
+        private void initialiseTriggers()
+        {
+            int triggerWidth = Content.Location.X;
+            int triggerHeight = Content.Location.Y;
+            triggers = new UserControl[3] {
+                new UserControl()
+                {
+                    Anchor = (AnchorStyles.Top | AnchorStyles.Left),
+                    Height = Height,
+                    Width = triggerWidth,
+                    Left = 0,
+                    Top = 0,
+                    BackColor = Color.Transparent,
+                    Name = "left"
+                },
+                new UserControl()
+                {
+                    Anchor = (AnchorStyles.Top | AnchorStyles.Right),
+                    Height = Height,
+                    Width = triggerWidth,
+                    Left = DisplayRectangle.Width - resizeWidth,
+                    Top = 0,
+                    BackColor = Color.Transparent,
+                    Name = "right"
+                },
+                new UserControl()
+                {
+                    Anchor = (AnchorStyles.Bottom | AnchorStyles.Left),
+                    Height = triggerHeight,
+                    Width = Width - 2 * triggerWidth,
+                    Left = triggerWidth,
+                    Top = DisplayRectangle.Height - resizeWidth,
+                    BackColor = Color.Transparent,
+                    Name = "bottom"
+                }
+            };
+            
+            
+        }
+
 
         public void form_MouseDown(object sender, MouseEventArgs e)
         {
@@ -634,7 +676,7 @@ namespace SDDWebBrowser
             }
         }
 
-        // Browser
+        // Browser - to purge
         private void OnBrowserLoadError(object sender, LoadErrorEventArgs e) // https://github.com/cefsharp/CefSharp.MinimalExample/blob/master/CefSharp.MinimalExample.WinForms/BrowserForm.cs#L32
         {
             //Actions that trigger a download will raise an aborted error.
@@ -682,8 +724,22 @@ namespace SDDWebBrowser
             lastSite = e.Address;
         }
 
+        
+
+        private void browser_FrameLoadEnd(object sender, FrameLoadEndEventArgs e)
+        {
+
+        }
+
+        private void browser_FrameLoadStart(object sender, FrameLoadStartEventArgs e)
+        {
+
+        }
+
+        //purge to here
+
         delegate void SetTextCallback(string text);
-        private void setTextURL(string text)
+        public void setTextURL(string text) // not purge
         {
             if (textURL.InvokeRequired)
             {
@@ -694,16 +750,6 @@ namespace SDDWebBrowser
             {
                 textURL.Text = text;
             }
-        }
-
-        private void browser_FrameLoadEnd(object sender, FrameLoadEndEventArgs e)
-        {
-
-        }
-
-        private void browser_FrameLoadStart(object sender, FrameLoadStartEventArgs e)
-        {
-
         }
 
         // colours
@@ -997,7 +1043,7 @@ namespace SDDWebBrowser
 
         // tabs
 
-        private void updateTabs()
+        private void updateTabs() //to purge from here
         {
             if (isDead) return;
             clearTabs();
@@ -1110,8 +1156,8 @@ namespace SDDWebBrowser
             Tab tab = tabs.Find(checkTabButtons);
             return tab;
         }
-
-        private void TabsButtonMouseMove(object sender, MouseEventArgs e)
+        // purge to here
+        public void TabsButtonMouseMove(object sender, MouseEventArgs e)
         {
             Tab tab = getTabsButton((Button)sender);
             if (tab != null && tab.isMouseDown)
@@ -1169,9 +1215,9 @@ namespace SDDWebBrowser
         public void updateMergingApp()
         {
             //getFrontmostApp(appsHoveringOver);
-            Form secondHighestForm = GetSecondHighestWindow(MousePosition);
+            Main highestwindow = GetHighestWindowThatIsNotThis(f => PointInControl(MousePosition, f.Tabs));
             
-            if (secondHighestForm == null)
+            if (highestwindow == null)
             {
                 appMergingTo = null;
                 isMergingToApp = false;
@@ -1179,22 +1225,22 @@ namespace SDDWebBrowser
             }
             else
             {
-                appMergingTo = (Main)secondHighestForm;
+                appMergingTo = highestwindow;
                 isMergingToApp = true;
                 Opacity = 0.8;
             }
         }
 
-        private Form GetSecondHighestWindow(Point position)
+        private Main GetHighestWindowThatIsNotThis(Func<Main, bool> predicate)
         {
             var openForms = Application.OpenForms.Cast<Form>()
                 .Where(f => f.Visible 
                 && !f.WindowState.Equals(FormWindowState.Minimized) 
-                && f.GetType() == typeof(Main) 
-                && PointInForm(position, f));
+                && f.GetType() == typeof(Main));
             var openApps = openForms.Cast<Main>()
+                .Where(predicate)
                 .OrderByDescending(f => f.lastFocused);
-            if (openApps.Count() < 2)
+            if (openApps.Count() < 1 || (openApps.Count() < 2 && openApps.Contains(this)))
             {
                 return null;
             }
@@ -1202,13 +1248,25 @@ namespace SDDWebBrowser
             {
                 //Console.WriteLine(openForms.ElementAtOrDefault(1).Text);
                 //Console.WriteLine(openForms.ElementAtOrDefault(1).DisplayRectangle);
-                return openApps.ElementAtOrDefault(1); // Get the second element from the sorted list
+                if (openApps.Contains(this))
+                {
+                    return openApps.ElementAtOrDefault(1);
+                }
+                else 
+                {
+                    return openApps.ElementAtOrDefault(0);
+                }
             }
         }
 
-        public bool PointInForm(Point position, Form form)
+        public bool PointInControl(Point position, Control control)
         {
-            Rectangle rectangle = new Rectangle(form.Left, form.Top, form.Width, form.Height);
+            Form form = control.FindForm();
+            Point locationOnForm = form.PointToScreen(control.Location);
+            //https://stackoverflow.com/questions/1478022/c-sharp-get-a-controls-position-on-a-form
+            Rectangle rectangle = new Rectangle(locationOnForm.X, locationOnForm.Y, control.Width, control.Height);
+            Console.WriteLine(rectangle);
+            Console.WriteLine(position);
             return PointInRectangle(position, rectangle);
         }
 
@@ -1234,13 +1292,18 @@ namespace SDDWebBrowser
             return ((p_2 << 16) | (p & 0xFFFF));
         }
 
-        private void createAppPanel(Tab tab)
+        private void createAppPanel(Tab tab, Rectangle area) //to purge
         {
             Button btn = tab.GetButton();
             ChromiumWebBrowser browser = tab.GetBrowser();
             Panel contentPanel = new Panel();
             Panel tabPanel = new Panel();
-            tabPanel.Size = btn.Parent.Size;
+            tabPanel.Height = Tabs.Height;
+            tabPanel.Width = area.Width;
+            tabPanel.Location = new Point(area.X, area.Y);
+            contentPanel.Width = area.Width;
+            contentPanel.Height = area.Height - tabPanel.Height;
+            contentPanel.Location = new Point(area.X, area.Y + tabPanel.Height);
             tabPanel.BringToFront();
             contentPanel.Size = browser.Parent.Size;
             contentPanel.BringToFront();
@@ -1253,7 +1316,7 @@ namespace SDDWebBrowser
             appPanels.Add((tabPanel, contentPanel));
         }
 
-        public void SetTabs(List<Tab> newTabList)
+        public void SetTabs(List<Tab> newTabList) //to purge
         {
             tabs = newTabList;
             updateTabs();
@@ -1265,7 +1328,7 @@ namespace SDDWebBrowser
             changeTabs(tabs[tabs.Count - 1]);
         }
 
-        public void ExtendTabs(List<Tab> newTabList)
+        public void ExtendTabs(List<Tab> newTabList) //to purge
         {
             tabs.AddRange(newTabList);
             updateTabs();
@@ -1349,6 +1412,11 @@ namespace SDDWebBrowser
                     }
                 }
             }
+        } // purge until
+
+        public Button getNewTabButton()
+        {
+            return newTabBtn;
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)

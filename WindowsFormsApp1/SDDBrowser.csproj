@@ -73,6 +73,7 @@
     <Compile Include="AppPopup.Designer.cs">
       <DependentUpon>AppPopup.cs</DependentUpon>
     </Compile>
+    <Compile Include="ContentPanel.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>
