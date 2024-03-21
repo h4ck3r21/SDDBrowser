@@ -22,7 +22,7 @@ namespace SDDBrowser
         public static string defaultURL = "www.google.com";
         Tab currentTab;
         Panel Content;
-        Panel Tabs;
+        public Panel Tabs;
         TextBox textURL;
         Button searchIcon;
         Button reloadButton;
@@ -62,7 +62,27 @@ namespace SDDBrowser
 
         public void generateAllPanels(Rectangle area)
         {
-            
+            generateNewBackButton();
+            generateNewForwardButton();
+            generateNewReloadButton();
+            generateNewSearchIcon();
+            generateNewTextURL();
+            generateNewContentHeader(area);
+            generateNewTabsPanel(area);
+            generateNewContentPanel(area);
+        }
+
+        public void setSizeAndPosition(Rectangle area)
+        {
+            Tabs.Height = Tabs.Height;
+            Tabs.Width = area.Width;
+            Tabs.Location = new Point(area.X, area.Y);
+            Content.Width = area.Width;
+            Content.Height = area.Height - Tabs.Height;
+            Content.Location = new Point(area.X, area.Y + Tabs.Height);
+            contentHeader.Width = area.Width;
+            contentHeader.Height = contentHeader.Height;
+            contentHeader.Location = new Point(area.X, area.Y);
         }
 
         public void generateNewTabsPanel(Rectangle area)
@@ -94,7 +114,7 @@ namespace SDDBrowser
             contentHeader = new Panel
             {
                 Width = area.Width,
-                Height = area.Height,
+                Height = contentHeader.Height,
                 Location = new Point(area.X, area.Y),
                 BackColor = Color.Transparent,
                 BorderStyle = BorderStyle.FixedSingle,

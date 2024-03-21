@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using CefSharp;
@@ -31,7 +32,8 @@ namespace SDDWebBrowser
 
         public List<string> domains;
         List<ContentPanel> contentPanels = new List<ContentPanel>();
-        UserControl[] triggers;
+        Control[] triggers;
+        List<Control> triggerAreas;
         bool isMergingToApp = false;
         public List<Action> needsHandle = new List<Action>();
         Main appMergingTo;
@@ -54,6 +56,8 @@ namespace SDDWebBrowser
         string edgeSnap = "None";
         Size oldSize;
         bool snapped = false;
+        Dictionary<string, Rectangle> positionArea = new Dictionary<string, Rectangle>();
+        Control contentSpace;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
         public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint cButtons, uint dwExtraInfo);
@@ -184,6 +188,11 @@ namespace SDDWebBrowser
             MouseDown += new MouseEventHandler(form_MouseDown);
             MouseMove += new MouseEventHandler(form_MouseMove);
             MouseUp += form_MouseUp;
+            contentSpace = new Control()
+            {
+                Location = contentHeader.Location,
+                Size = new Size(contentHeader.Width, contentHeader.Height + Tabs.Height + Content.Height)
+            };
 
             // bottom
             UserControl bottomEdge = new UserControl()
@@ -444,6 +453,10 @@ namespace SDDWebBrowser
 
         private void initialiseTriggers()
         {
+            positionArea.Add("left", new Rectangle(0, 0, 1, 2));
+            positionArea.Add("top", new Rectangle(1, 0, 1, 1));
+            positionArea.Add("right", new Rectangle(2, 0, 1, 2));
+            positionArea.Add("bottom", new Rectangle(1, 1, 1, 1));
             int triggerWidth = Content.Location.X;
             int triggerHeight = Content.Location.Y;
             triggers = new UserControl[3] {
@@ -478,8 +491,11 @@ namespace SDDWebBrowser
                     Name = "bottom"
                 }
             };
-            
-            
+            triggerAreas = triggers.ToList();
+            foreach (ContentPanel contentPanel in contentPanels)
+            {
+                triggerAreas.Add(contentPanel.Tabs);
+            }
         }
 
 
@@ -620,6 +636,10 @@ namespace SDDWebBrowser
         private void mergeContentPanel(string position)
         {
             ContentPanel panelMergingFrom = contentPanels.Find(p => p.position == position);
+            if (panelMergingFrom is null)
+            {
+                
+            }
             List<Tab> tabs = panelMergingFrom.tabs;
             foreach (Tab tab in tabs)
             {
@@ -630,10 +650,77 @@ namespace SDDWebBrowser
             Console.WriteLine(tabs.Count);
         }
 
+        private ContentPanel newContentPanel(string position)
+        {
+            ContentPanel content = new ContentPanel(this, position);
+            Size gridSize = getGridSize();
+            List<Rectangle> rectangles = getRectangles();
+            IEnumerable<IGrouping<int, Rectangle>> columns = rectangles.GroupBy(r => r.X);
+            content.generateAllPanels(new Rectangle(contentSpace.Location.X, contentSpace.Location.Y, contentSpace.Width, contentSpace.Height));
+            foreach (ContentPanel contentPanel in contentPanels)
+            {
+                Rectangle rectangle;
+                if (positionArea.TryGetValue(contentPanel.position, out rectangle))
+                {
+                    rectangle.X = rectangle.X * gridSize.Width;
+                    rectangle.Y = rectangle.Y * gridSize.Height;
+                    rectangle.Width = rectangle.Width * gridSize.Width;
+                    rectangle.Height = rectangle.Height * gridSize.Height;
+                    contentPanel.setSizeAndPosition(rectangle);
+                }
+            }
+
+            return content;
+        }
+
+        private List<Rectangle> getRectangles()
+        {
+            List<Rectangle> rectangles = new List<Rectangle>();
+            foreach (ContentPanel contentPanel in contentPanels)
+            {
+                Rectangle rectangle;
+                if (positionArea.TryGetValue(contentPanel.position, out rectangle))
+                {
+                    rectangles.Add(rectangle);
+                }
+            }
+            return rectangles;
+        }
+
+        private Size getGridSize()
+        {
+            int columns;
+            int rows;
+            List<int> grids = getRectangles().ConvertAll(r => r.X);
+            rows = grids.ToHashSet().Count;
+            int? mode = getMode(grids);
+            columns = grids.Count(i => i == mode);
+            int x = contentSpace.Width;
+            int y = contentSpace.Height;
+            return new Size(x/rows, y/columns);
+        } 
+
+        private int? getMode(List<int> numbers)
+        {
+            int? mode = numbers.GroupBy(i => i)
+             .OrderByDescending(i => i.Count()).ThenBy(i => i.Key)
+             .Select(i => (int?)i.Key)
+             .FirstOrDefault(); ; //https://stackoverflow.com/questions/19467492/how-do-i-find-the-mode-of-a-listdouble
+            return mode;
+        }
+
         private void form_MouseUp(object sender, MouseEventArgs e)
         {
             if (isMergingToApp)
             {
+                string position;
+                foreach (Control trigger in triggerAreas)
+                {
+                    if (PointInControl(MousePosition, trigger)) 
+                    {
+                        position = trigger.Name;
+                    }
+                }
                 foreach (ContentPanel contentPanel in contentPanels)
                 {
                     mergeContentPanel(contentPanel.position);
@@ -845,7 +932,7 @@ namespace SDDWebBrowser
         public void updateMergingApp()
         {
             //getFrontmostApp(appsHoveringOver);
-            Main highestwindow = GetHighestWindowThatIsNotThis(f => PointInControl(MousePosition, f.Tabs));
+            Main highestwindow = GetHighestWindowThatIsNotThis(f => PointInControls(MousePosition, f.triggerAreas));
             
             if (highestwindow == null)
             {
@@ -859,6 +946,11 @@ namespace SDDWebBrowser
                 isMergingToApp = true;
                 Opacity = 0.8;
             }
+        }
+
+        public bool PointInControls(Point point, List<Control> controls)
+        {
+            return controls.Any(c => PointInControl(point, c));
         }
 
         private Main GetHighestWindowThatIsNotThis(Func<Main, bool> predicate)
