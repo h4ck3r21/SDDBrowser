@@ -16,10 +16,10 @@ using CefSharp.WinForms;
 using SDDBrowser;
 using SDDPopup;
 using SDDTabs;
+using Windows.ApplicationModel.Contacts;
 using Windows.System;
 using Windows.UI.Input;
 using Windows.UI.ViewManagement;
-using Windows.UI.Xaml.Controls.Primitives;
 
 namespace SDDWebBrowser
 {
@@ -32,8 +32,8 @@ namespace SDDWebBrowser
 
         public List<string> domains;
         List<ContentPanel> contentPanels = new List<ContentPanel>();
-        Control[] triggers;
-        List<Control> triggerAreas;
+        Trigger[] triggers;
+        List<Trigger> triggerAreas;
         bool isMergingToApp = false;
         public List<Action> needsHandle = new List<Action>();
         Main appMergingTo;
@@ -82,6 +82,15 @@ namespace SDDWebBrowser
             WM_RBUTTONDBLCLK = 0x206, //Right mousebutton do
         }
 
+        public void removeControl(Control control)
+        {
+            Controls.Remove(control);
+        }
+
+        public void addControl(Control control)
+        {
+            Controls.Add(control);
+        }
 
         // window
         private void Main_Load(object sender, EventArgs e)
@@ -161,6 +170,7 @@ namespace SDDWebBrowser
                         edge.Visible = true;
                     }
                 }
+                updateTriggers();
             }
         }
 
@@ -451,51 +461,41 @@ namespace SDDWebBrowser
             this.Controls.Add(topLeftEdge);
         }
 
+        private void updateTriggers()
+        {
+            int triggerWidth = contentHeader.Location.X;
+            int triggerHeight = contentHeader.Location.Y;
+            triggers = new Trigger[3] {
+                new Trigger("left",
+                new Rectangle(0, 0, triggerWidth, Height), this),
+                new Trigger("right",
+                new Rectangle(DisplayRectangle.Width - triggerWidth, 0, triggerWidth, Height), this),
+                new Trigger("bottom",
+                new Rectangle(triggerWidth, DisplayRectangle.Height - triggerWidth, Width - 2 * triggerWidth, triggerHeight), this)
+            };
+            triggerAreas = triggers.ToList();
+            foreach (ContentPanel contentPanel in contentPanels)
+            {
+                triggerAreas.Add(controlToTrigger(contentPanel.Tabs));
+            }
+        }
+
+        private Trigger controlToTrigger(Control control)
+        {
+            Point location = PointToScreen(control.Location);
+            Console.WriteLine(location);
+            Rectangle rectangle = new Rectangle(location.X - Left, location.Y - Top, control.Width, control.Height);
+            Console.WriteLine(rectangle);
+            return new Trigger(Tabs.Name, rectangle, this);
+        }
+
         private void initialiseTriggers()
         {
             positionArea.Add("left", new Rectangle(0, 0, 1, 2));
             positionArea.Add("top", new Rectangle(1, 0, 1, 1));
             positionArea.Add("right", new Rectangle(2, 0, 1, 2));
             positionArea.Add("bottom", new Rectangle(1, 1, 1, 1));
-            int triggerWidth = Content.Location.X;
-            int triggerHeight = Content.Location.Y;
-            triggers = new UserControl[3] {
-                new UserControl()
-                {
-                    Anchor = (AnchorStyles.Top | AnchorStyles.Left),
-                    Height = Height,
-                    Width = triggerWidth,
-                    Left = 0,
-                    Top = 0,
-                    BackColor = Color.Transparent,
-                    Name = "left"
-                },
-                new UserControl()
-                {
-                    Anchor = (AnchorStyles.Top | AnchorStyles.Right),
-                    Height = Height,
-                    Width = triggerWidth,
-                    Left = DisplayRectangle.Width - resizeWidth,
-                    Top = 0,
-                    BackColor = Color.Transparent,
-                    Name = "right"
-                },
-                new UserControl()
-                {
-                    Anchor = (AnchorStyles.Bottom | AnchorStyles.Left),
-                    Height = triggerHeight,
-                    Width = Width - 2 * triggerWidth,
-                    Left = triggerWidth,
-                    Top = DisplayRectangle.Height - resizeWidth,
-                    BackColor = Color.Transparent,
-                    Name = "bottom"
-                }
-            };
-            triggerAreas = triggers.ToList();
-            foreach (ContentPanel contentPanel in contentPanels)
-            {
-                triggerAreas.Add(contentPanel.Tabs);
-            }
+            updateTriggers();
         }
 
 
@@ -633,26 +633,34 @@ namespace SDDWebBrowser
             isDragging = false;
         }
 
-        private void mergeContentPanel(string position)
+        private void mergeContentPanel()
         {
-            ContentPanel panelMergingFrom = contentPanels.Find(p => p.position == position);
-            if (panelMergingFrom is null)
+            foreach(ContentPanel panelMergingFrom in contentPanels)
             {
-                
-            }
-            List<Tab> tabs = panelMergingFrom.tabs;
-            foreach (Tab tab in tabs)
-            {
-                transferTabEvents(tab, this, appMergingTo);
-            }
-            ContentPanel panelMergingTo = appMergingTo.contentPanels.Find(p => p.position == position);
-            panelMergingTo.ExtendTabs(tabs);
-            Console.WriteLine(tabs.Count);
+                List<Tab> tabs = panelMergingFrom.tabs;
+                foreach (Tab tab in tabs)
+                {
+                    transferTabEvents(tab, this, appMergingTo);
+                }
+                ContentPanel panelMergingTo = appMergingTo.contentPanels.Find(p => p.position == positionMergingTo);
+                if (panelMergingTo is null)
+                {
+                    panelMergingTo = appMergingTo.contentPanels.Find(p => p.Tabs.Name == positionMergingTo);
+                    if (panelMergingTo is null)
+                    {
+                        panelMergingTo = appMergingTo.newContentPanel(positionMergingTo);
+                    }
+                }
+                panelMergingTo.ExtendTabs(tabs);
+            }            
         }
 
         private ContentPanel newContentPanel(string position)
         {
             ContentPanel content = new ContentPanel(this, position);
+            contentPanels.Add(content);
+
+            Size table = getTablesize();
             Size gridSize = getGridSize();
             List<Rectangle> rectangles = getRectangles();
             IEnumerable<IGrouping<int, Rectangle>> columns = rectangles.GroupBy(r => r.X);
@@ -662,15 +670,114 @@ namespace SDDWebBrowser
                 Rectangle rectangle;
                 if (positionArea.TryGetValue(contentPanel.position, out rectangle))
                 {
-                    rectangle.X = rectangle.X * gridSize.Width;
-                    rectangle.Y = rectangle.Y * gridSize.Height;
-                    rectangle.Width = rectangle.Width * gridSize.Width;
-                    rectangle.Height = rectangle.Height * gridSize.Height;
+                    int rightExtension = extendRectangleWidthRight(rectangle.X + rectangle.Width, rectangle.Y, table.Width, rectangle.Height, rectangles);
+                    int downExtension = extendRectangleHeightDown(rectangle.Y + rectangle.Height, rectangle.X, table.Height, rectangle.Width + rightExtension, rectangles);
+                    int leftExtension = extendRectangleWidthLeft(rectangle.X + rectangle.Width, rectangle.Y, table.Width, rectangle.Height, rectangles);
+                    int upExtension = extendRectangleHeightUp(rectangle.Y + rectangle.Height, rectangle.X, table.Height, rectangle.Width + rightExtension, rectangles);
+                    rectangle.X = (rectangle.X - leftExtension) * gridSize.Width + contentSpace.Location.X;
+                    rectangle.Y = (rectangle.Y - upExtension) * gridSize.Height + contentSpace.Location.Y;
+                    rectangle.Width = (rectangle.Width + rightExtension + leftExtension) * gridSize.Width;
+                    rectangle.Height = (rectangle.Height + downExtension + upExtension) * gridSize.Height;
                     contentPanel.setSizeAndPosition(rectangle);
                 }
             }
-
             return content;
+        }
+
+        private int extendRectangleWidthRight(int startX, int startY, int maxExtension, int thickness, List<Rectangle> rectangles)
+        {
+            int extendX = 100;
+            for (int y = 0; y < thickness; y++)
+            {
+                int newExtendX = 0;
+                Point Coord = new Point(newExtendX + startX, y + startY);
+                while (Coord.X < maxExtension)
+                {
+                    if (rectangles.Any(r => PointInRectangle(Coord, r)))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        newExtendX++;
+                    }
+                    Coord = new Point(newExtendX + startX, y + startY);
+                }
+                extendX = Math.Min(extendX, newExtendX);
+            }
+            return extendX;
+        }
+
+        private int extendRectangleHeightDown(int startY, int startX, int maxExtension, int thickness, List<Rectangle> rectangles)
+        {
+            int extendY = 100;
+            for (int x = 0; x < thickness; x++)
+            {
+                int newExtendY = 0;
+                Point Coord = new Point(x + startX, newExtendY + startY);
+                while (Coord.Y < maxExtension)
+                {
+                    if (rectangles.Any(r => PointInRectangle(Coord, r)))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        newExtendY++;
+                    }
+                    Coord = new Point(x + startX, newExtendY + startY);
+                }
+                extendY = Math.Min(extendY, newExtendY);
+            }
+            return extendY;
+        }
+
+        private int extendRectangleWidthLeft(int startX, int startY, int maxExtension, int thickness, List<Rectangle> rectangles)
+        {
+            int extendX = 100;
+            for (int y = 0; y < thickness; y++)
+            {
+                int newExtendX = 0;
+                Point Coord = new Point(startX - newExtendX - 2, y + startY);
+                while (Coord.X >= 0)
+                {
+                    if (rectangles.Any(r => PointInRectangle(Coord, r)))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        newExtendX++;
+                    }
+                    Coord = new Point(startX - newExtendX - 2, y + startY);
+                }
+                extendX = Math.Min(extendX, newExtendX);
+            }
+            return extendX;
+        }
+
+        private int extendRectangleHeightUp(int startY, int startX, int maxExtension, int thickness, List<Rectangle> rectangles)
+        {
+            int extendY = 100;
+            for (int x = 0; x < thickness; x++)
+            {
+                int newExtendY = 0;
+                Point Coord = new Point(x + startX, startY - newExtendY - 2);
+                while (Coord.Y >= 0)
+                {
+                    if (rectangles.Any(r => PointInRectangle(Coord, r)))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        newExtendY++;
+                    }
+                    Coord = new Point(x + startX, startY - newExtendY - 2);
+                }
+                extendY = Math.Min(extendY, newExtendY);
+            }
+            return extendY;
         }
 
         private List<Rectangle> getRectangles()
@@ -687,7 +794,7 @@ namespace SDDWebBrowser
             return rectangles;
         }
 
-        private Size getGridSize()
+        private Size getEqualGridSize()
         {
             int columns;
             int rows;
@@ -698,7 +805,24 @@ namespace SDDWebBrowser
             int x = contentSpace.Width;
             int y = contentSpace.Height;
             return new Size(x/rows, y/columns);
-        } 
+        }
+        
+        private Size getGridSize()
+        {
+            Size table = getTablesize();
+            int x = contentSpace.Width;
+            int y = contentSpace.Height;
+            return new Size(x / table.Width, y / table.Height);
+        }
+
+        private Size getTablesize()
+        {
+            Rectangle rightRectangle = positionArea.Values.OrderByDescending(r => r.X).ThenBy(r => r.Width).FirstOrDefault();
+            int rows = rightRectangle.Width + rightRectangle.X;
+            Rectangle bottomRectangle = positionArea.Values.OrderByDescending(r => r.Y).ThenBy(r => r.Height).FirstOrDefault();
+            int columns = bottomRectangle.Height + bottomRectangle.Y;
+            return new Size(rows, columns);
+        }
 
         private int? getMode(List<int> numbers)
         {
@@ -713,17 +837,9 @@ namespace SDDWebBrowser
         {
             if (isMergingToApp)
             {
-                string position;
-                foreach (Control trigger in triggerAreas)
-                {
-                    if (PointInControl(MousePosition, trigger)) 
-                    {
-                        position = trigger.Name;
-                    }
-                }
                 foreach (ContentPanel contentPanel in contentPanels)
                 {
-                    mergeContentPanel(contentPanel.position);
+                    mergeContentPanel();
                 }
                 
                 isDead = true;
@@ -932,25 +1048,32 @@ namespace SDDWebBrowser
         public void updateMergingApp()
         {
             //getFrontmostApp(appsHoveringOver);
-            Main highestwindow = GetHighestWindowThatIsNotThis(f => PointInControls(MousePosition, f.triggerAreas));
+            Main highestwindow = GetHighestWindowThatIsNotThis(f => PointInTriggers(MousePosition, f.triggerAreas));
             
             if (highestwindow == null)
             {
                 appMergingTo = null;
+                positionMergingTo = "top";
                 isMergingToApp = false;
                 Opacity = 1;
             }
             else
             {
                 appMergingTo = highestwindow;
+                positionMergingTo = appMergingTo.triggerAreas.Find(t => PointInRectangle(MousePosition, t.getRectangleOnScreen())).Name;
                 isMergingToApp = true;
-                Opacity = 0.8;
+                Opacity = 0.6;
             }
         }
 
         public bool PointInControls(Point point, List<Control> controls)
         {
             return controls.Any(c => PointInControl(point, c));
+        }
+
+        public bool PointInTriggers(Point point, List<Trigger> triggers)
+        {
+            return triggers.Any(t => PointInRectangle(point, t.getRectangleOnScreen()));
         }
 
         private Main GetHighestWindowThatIsNotThis(Func<Main, bool> predicate)
@@ -995,9 +1118,9 @@ namespace SDDWebBrowser
         public bool PointInRectangle(Point point, Rectangle rectangle)
         {
             return point.X >= rectangle.X
-                && point.X <= rectangle.X + rectangle.Width
+                && point.X < rectangle.X + rectangle.Width
                 && point.Y >= rectangle.Y
-                && point.Y <= rectangle.Y + rectangle.Height;
+                && point.Y < rectangle.Y + rectangle.Height;
         }
 
         public void DoMouseClick()

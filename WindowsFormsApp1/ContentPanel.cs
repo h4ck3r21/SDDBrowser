@@ -50,7 +50,7 @@ namespace SDDBrowser
             Tabs = (Panel)form.Controls.Find("Tabs", true)[0];
             Content = (Panel)form.Controls.Find("Content", true)[0];
             newTabBtn = owner.getNewTabButton();
-            reloadButton.Click += new EventHandler(reloadButton_Click); 
+            reloadButton.Click += new EventHandler(reloadButton_Click);
             forwardButton.Click += new EventHandler(this.forwardButton_Click);
             backButton.Click += new EventHandler(this.backButton_Click);
             textURL.TextChanged += new EventHandler(this.textURL_TextChanged);
@@ -94,7 +94,7 @@ namespace SDDBrowser
                 Location = new Point(area.X, area.Y)
             };
             Tabs.BringToFront();
-            owner.Controls.Add(Tabs);
+            owner.addControl(Tabs);
         }
 
         public void generateNewContentPanel(Rectangle area)
@@ -106,7 +106,7 @@ namespace SDDBrowser
                 Location = new Point(area.X, area.Y + Tabs.Height),
             };
             Content.BringToFront();
-            owner.Controls.Add(Content);
+            owner.addControl(Content);
         }
 
         public void generateNewContentHeader(Rectangle area)
@@ -129,8 +129,8 @@ namespace SDDBrowser
             contentHeader.Controls.Add(backButton);
             contentHeader.Controls.Add(searchIcon);
             contentHeader.Controls.Add(textURL);
-            Content.BringToFront();
-            owner.Controls.Add(Content);
+            contentHeader.BringToFront();
+            owner.addControl(contentHeader);
         }
 
         public void generateNewTextURL()
@@ -164,6 +164,7 @@ namespace SDDBrowser
 
         public void generateNewReloadButton()
         {
+            reloadButton = new Button();
             this.reloadButton.FlatAppearance.BorderSize = 0;
             this.reloadButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.reloadButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -173,10 +174,12 @@ namespace SDDBrowser
             this.reloadButton.TabIndex = 4;
             this.reloadButton.Text = "O";
             this.reloadButton.UseVisualStyleBackColor = true;
+            
         }
 
         public void generateNewForwardButton()
         {
+            forwardButton = new Button();
             this.forwardButton.FlatAppearance.BorderSize = 0;
             this.forwardButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.forwardButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -191,6 +194,7 @@ namespace SDDBrowser
 
         public void generateNewBackButton()
         {
+            backButton = new Button();
             this.backButton.FlatAppearance.BorderSize = 0;
             this.backButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.backButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -530,6 +534,7 @@ namespace SDDBrowser
 
         private void setForwardButtonEnabled(bool enabled)
         {
+            if (owner.isDead) return;
             if (forwardButton.InvokeRequired)
             {
                 var d = new SetBoolCallback(setForwardButtonEnabled);
@@ -691,7 +696,6 @@ namespace SDDBrowser
             solidBrush.Dispose();
             stringFormat.Dispose();
         }
-
 
     }
 
