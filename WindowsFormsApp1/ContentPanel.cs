@@ -4,14 +4,18 @@ using SDDTabs;
 using SDDWebBrowser;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.DirectoryServices.ActiveDirectory;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Windows.ApplicationModel.Background;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace SDDBrowser
@@ -36,7 +40,10 @@ namespace SDDBrowser
         string lastSite;
         int historyStackIndex;
         bool fromHistory;
-        List<string> historyStack;
+        List<string> historyStack = new List<string>();
+        public Rectangle Bounds;
+        public Rectangle LastBounds;
+
         public ContentPanel(Main form, string position)
         {
             this.position = position;
@@ -58,31 +65,65 @@ namespace SDDBrowser
             forwardButton.Paint += new PaintEventHandler(this.forwardButton_Paint);
             backButton.Paint += new PaintEventHandler(this.backButton_Paint);
 
+            Bounds = new Rectangle(contentHeader.Left, contentHeader.Top, contentHeader.Width, contentHeader.Height + Tabs.Height + Content.Height);
+            LastBounds = Bounds;
+            updateNavButtons();
         }
 
         public void generateAllPanels(Rectangle area)
         {
+            reloadButton.Click -= reloadButton_Click;
+            forwardButton.Click -= forwardButton_Click;
+            backButton.Click -= backButton_Click;
+            textURL.TextChanged -= textURL_TextChanged;
+            textURL.KeyDown -= textURL_KeyDown;
+            forwardButton.Paint -=  forwardButton_Paint;
+            backButton.Paint -= backButton_Paint;
+            generateNewTabBtn();
             generateNewBackButton();
             generateNewForwardButton();
             generateNewReloadButton();
             generateNewSearchIcon();
             generateNewTextURL();
-            generateNewContentHeader(area);
             generateNewTabsPanel(area);
+            tabs = new List<Tab>();
+            generateNewContentHeader(area);
+            
             generateNewContentPanel(area);
+            reloadButton.Click += new EventHandler(reloadButton_Click);
+            forwardButton.Click += new EventHandler(this.forwardButton_Click);
+            backButton.Click += new EventHandler(this.backButton_Click);
+            textURL.TextChanged += new EventHandler(this.textURL_TextChanged);
+            textURL.KeyDown += new KeyEventHandler(this.textURL_KeyDown);
+            forwardButton.Paint += new PaintEventHandler(this.forwardButton_Paint);
+            backButton.Paint += new PaintEventHandler(this.backButton_Paint);
+            updateTabs();
+            Bounds = area;
         }
 
         public void setSizeAndPosition(Rectangle area)
         {
             Tabs.Height = Tabs.Height;
             Tabs.Width = area.Width;
-            Tabs.Location = new Point(area.X, area.Y);
+            Tabs.Location = new Point(area.X, area.Y + contentHeader.Height);
             Content.Width = area.Width;
-            Content.Height = area.Height - Tabs.Height;
-            Content.Location = new Point(area.X, area.Y + Tabs.Height);
+            Content.Height = area.Height - Tabs.Height - contentHeader.Height;
+            Content.Location = new Point(area.X, area.Y + Tabs.Height + contentHeader.Height);
             contentHeader.Width = area.Width;
             contentHeader.Height = contentHeader.Height;
             contentHeader.Location = new Point(area.X, area.Y);
+            Bounds = area;
+            updateTabs();
+            updateNavButtons();
+        }
+
+        public void ResizeControls(Size size)
+        {
+            owner.ResizeWidthControl(Content, size);
+            owner.ResizeHeightControl(Content, size);
+            owner.ResizeWidthControl(contentHeader, size);
+            owner.ResizeWidthControl(textURL, size);
+            owner.ResizeWidthControl(Tabs, size);
         }
 
         public void generateNewTabsPanel(Rectangle area)
@@ -91,7 +132,9 @@ namespace SDDBrowser
             {
                 Height = Tabs.Height,
                 Width = area.Width,
-                Location = new Point(area.X, area.Y)
+                Location = new Point(area.X, area.Y),
+                Name = position,
+                BorderStyle = BorderStyle.FixedSingle,
             };
             Tabs.BringToFront();
             owner.addControl(Tabs);
@@ -104,6 +147,7 @@ namespace SDDBrowser
                 Width = area.Width,
                 Height = area.Height - Tabs.Height,
                 Location = new Point(area.X, area.Y + Tabs.Height),
+                BorderStyle = BorderStyle.FixedSingle,
             };
             Content.BringToFront();
             owner.addControl(Content);
@@ -113,14 +157,12 @@ namespace SDDBrowser
         {
             contentHeader = new Panel
             {
-                Width = area.Width,
-                Height = contentHeader.Height,
                 Location = new Point(area.X, area.Y),
                 BackColor = Color.Transparent,
                 BorderStyle = BorderStyle.FixedSingle,
                 Cursor = Cursors.Default,
                 Name = "contentHeader",
-                Size = new Size(1140, 100),
+                Size = contentHeader.Size,
                 TabIndex = 0
             };
             //this.contentHeader.Controls.Add(owner.Bookmarks);
@@ -133,6 +175,21 @@ namespace SDDBrowser
             owner.addControl(contentHeader);
         }
 
+        public void generateNewTabBtn()
+        {
+            newTabBtn = new Button()
+            {
+                Location = new Point(3, 7),
+                Name = "newTabBtn",
+                Size = newTabBtn.Size,
+                TabIndex = 0,
+                Text = "+",
+                UseVisualStyleBackColor = true,
+                BackColor = newTabBtn.BackColor
+            };
+            newTabBtn.Click += new EventHandler(newTabBtn_Click);
+        }
+
         public void generateNewTextURL()
         {
             textURL = new TextBox()
@@ -143,66 +200,80 @@ namespace SDDBrowser
                 Name = "textURL",
                 Size = new System.Drawing.Size(940, 32),
                 TabIndex = 0,
-                Text = "www.google.com"
+                Text = "www.google.com",
+                BackColor = textURL.BackColor,
+                ForeColor = textURL.ForeColor,
             };
         }
 
         public void generateNewSearchIcon()
         {
-            searchIcon = new Button();
+            searchIcon = new Button() 
+            {
+                
+                FlatStyle = System.Windows.Forms.FlatStyle.Flat,
+                Font = searchIcon.Font,
+                Location = new System.Drawing.Point(150, 0),
+                Name = "searchIcon",
+                Size = searchIcon.Size,
+                TabIndex = 1,
+                Text = "G",
+                UseVisualStyleBackColor = true,
+            };
             this.searchIcon.FlatAppearance.BorderSize = 0;
-            this.searchIcon.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.searchIcon.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.searchIcon.Location = new System.Drawing.Point(150, 0);
-            this.searchIcon.Name = "searchIcon";
-            this.searchIcon.Size = new System.Drawing.Size(50, 49);
-            this.searchIcon.TabIndex = 1;
-            this.searchIcon.Text = "G";
-            this.searchIcon.UseVisualStyleBackColor = true;
 
         }
 
         public void generateNewReloadButton()
         {
-            reloadButton = new Button();
+            reloadButton = new Button() 
+            {
+                FlatStyle = System.Windows.Forms.FlatStyle.Flat,
+                Font = reloadButton.Font,
+                Location = new System.Drawing.Point(100, 0),
+                Name = "reloadButton",
+                Size = reloadButton.Size,
+                TabIndex = 4,
+                Text = "O",
+                UseVisualStyleBackColor = true,
+            };
             this.reloadButton.FlatAppearance.BorderSize = 0;
-            this.reloadButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.reloadButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.reloadButton.Location = new System.Drawing.Point(100, 0);
-            this.reloadButton.Name = "reloadButton";
-            this.reloadButton.Size = new System.Drawing.Size(50, 49);
-            this.reloadButton.TabIndex = 4;
-            this.reloadButton.Text = "O";
-            this.reloadButton.UseVisualStyleBackColor = true;
             
         }
 
         public void generateNewForwardButton()
         {
-            forwardButton = new Button();
-            this.forwardButton.FlatAppearance.BorderSize = 0;
-            this.forwardButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.forwardButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.forwardButton.Location = new System.Drawing.Point(50, 0);
-            this.forwardButton.Name = "forwardButton";
-            this.forwardButton.Size = new System.Drawing.Size(50, 49);
-            this.forwardButton.TabIndex = 3;
-            this.forwardButton.UseVisualStyleBackColor = true;
-            this.forwardButton.Paint += new System.Windows.Forms.PaintEventHandler(this.forwardButton_Paint);
+            forwardButton = new Button()
+            {
+
+                FlatStyle = System.Windows.Forms.FlatStyle.Flat,
+                Font = forwardButton.Font,
+                Location = new System.Drawing.Point(50, 0),
+                Name = "forwardButton",
+                Size = forwardButton.Size,
+                TabIndex = 3,
+                UseVisualStyleBackColor = true,
+
+            };
+            forwardButton.FlatAppearance.BorderSize = 0;
+            forwardButton.Paint += new PaintEventHandler(this.forwardButton_Paint);
+            
 
         }
 
         public void generateNewBackButton()
         {
-            backButton = new Button();
+            backButton = new Button() 
+            {
+                FlatStyle = System.Windows.Forms.FlatStyle.Flat,
+                Font = backButton.Font,
+                Location = new System.Drawing.Point(0, 0),
+                Name = "backButton",
+                Size = backButton.Size,
+                TabIndex = 2,
+                UseVisualStyleBackColor = true,
+            };
             this.backButton.FlatAppearance.BorderSize = 0;
-            this.backButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.backButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.backButton.Location = new System.Drawing.Point(0, 0);
-            this.backButton.Name = "backButton";
-            this.backButton.Size = new System.Drawing.Size(50, 49);
-            this.backButton.TabIndex = 2;
-            this.backButton.UseVisualStyleBackColor = true;
             this.backButton.Paint += new System.Windows.Forms.PaintEventHandler(this.backButton_Paint);
         }
 
@@ -223,14 +294,16 @@ namespace SDDBrowser
             };
 
             currentTab = addTab(currentPage);
+            transferTabEventsTo(this, currentTab);
             changeTabs(currentTab);
 
         }
 
-        public void SetTabs(List<Tab> newTabList)
+        public void SetTabs(List<Tab> newTabList, ContentPanel fromPanel)
         {
             tabs = newTabList;
             updateTabs();
+            fromPanel.transferTabsEventsTo(this, tabs);
             Content.Controls.Clear();
             foreach (Tab tab in tabs)
             {
@@ -242,7 +315,7 @@ namespace SDDBrowser
         public void ExtendTabs(List<Tab> newTabList)
         {
             tabs.AddRange(newTabList);
-            updateTabs();
+            
             foreach (Tab tab in newTabList)
             {
                 Content.Controls.Add(tab.GetBrowser());
@@ -253,6 +326,7 @@ namespace SDDBrowser
             }
             Console.WriteLine("tab count:");
             Console.WriteLine(tabs.Count);
+            updateTabs();
         }
 
         public void TabsButtonMouseUp(object sender, MouseEventArgs e)
@@ -266,10 +340,14 @@ namespace SDDBrowser
             tab.isDragging = false;
         }
 
-        private void TabsButtonMouseDown(object sender, MouseEventArgs e)
+        public void TabsButtonMouseDown(object sender, MouseEventArgs e)
         {
             Tab tab = getTabsButton((Button)sender);
-            tab.isMouseDown = true;
+            if (tab != null)
+            {
+                tab.isMouseDown = true;
+            }
+            
         }
 
         private void changeTabs(Tab tab)
@@ -320,18 +398,52 @@ namespace SDDBrowser
             }
         }
 
+        delegate void VoidCallback();
+        private void removeBtnControl(Button button)
+        {
+            if (owner.isDead || Tabs.IsDisposed || button.IsDisposed) return;
+            if (Tabs.InvokeRequired || button.InvokeRequired)
+            {
+                var d = new SetButtonCallback(removeBtnControl);
+                Tabs.Invoke(d, new object[] { button });
+            }
+            else
+            {
+                Tabs.Controls.Remove(button);
+            }
+        }
+
         private void updateTabs()
         {
             if (owner.isDead) return;
-            clearTabs();
+            //Debug.WriteLine("Tabs: {0}, Controls:{1}", tabs.Count, Tabs.Controls.Count);
+            tabs = tabs.Distinct().ToList();
+
             int currentXPos = 0;
+            IEnumerable<Button> buttons = tabs.Select(tab => tab.GetButton());
+            Control[] controls = new Control[Tabs.Controls.Count];
+            Tabs.Controls.CopyTo(controls, 0);
+            foreach (Control control in controls)
+            {
+                if (!buttons.Contains(control))
+                {
+                    removeBtnControl((Button)control);
+
+                }
+            }
+
             foreach (Tab tab in tabs)
             {
                 Button btn = tab.GetButton();
                 changeBtnLocation(btn, new Point(currentXPos, 0));
-                addBtnControl(btn);
+                if (!Tabs.Controls.Contains(btn))
+                {
+                    addBtnControl(btn);
+                }
                 currentXPos += btn.Width;
             }
+
+            Debug.WriteLine("Tabs: {0}, Controls:{1}", tabs.Count, Tabs.Controls.Count);
             addBtnControl(newTabBtn);
             setNewTabButtonLocation(new Point(currentXPos, newTabBtn.Location.Y));
         }
@@ -353,6 +465,7 @@ namespace SDDBrowser
         delegate void SetButtonCallback(Button button);
         private void addBtnControl(Button button)
         {
+            if (owner.isDead || Tabs.IsDisposed || button.IsDisposed) return;
             if (Tabs.InvokeRequired || button.InvokeRequired)
             {
                 var d = new SetButtonCallback(addBtnControl);
@@ -408,20 +521,57 @@ namespace SDDBrowser
             Tab newTab = new Tab(tab, updateTabs);
 
             Button btn = newTab.GetButton();
-            btn.MouseDown += new MouseEventHandler(TabsButtonMouseDown);
-            btn.MouseUp += new MouseEventHandler(TabsButtonMouseUp);
-            btn.MouseMove += new MouseEventHandler(owner.TabsButtonMouseMove);
 
             btn.ForeColor = owner.foreColor;
             btn.BackColor = owner.backColor;
-
-            Button closeBtn = newTab.GetCloseButton();
-            closeBtn.Click += new EventHandler(closeTab);
 
             Tabs.Controls.Add(btn);
             tabs.Add(newTab);
             updateTabs();
             return newTab;
+        }
+
+        public void transferTabsEventsTo(ContentPanel contentPanel, List<Tab> tabs)
+        { 
+            foreach (Tab tab in tabs)
+            {
+                transferTabEventsTo(contentPanel, tab);
+            }
+        }
+
+            public void transferTabEventsTo(ContentPanel contentPanel, Tab tab)
+        {
+            Button btn = tab.GetButton();
+            RemoveEvent(btn, "EventMouseDown");
+            RemoveEvent(btn, "EventMouseUp");
+            RemoveEvent(btn, "EventMouseMove");
+
+
+            btn.MouseDown += new MouseEventHandler(contentPanel.TabsButtonMouseDown);
+            btn.MouseUp += new MouseEventHandler(contentPanel.TabsButtonMouseUp);
+            btn.MouseMove += new MouseEventHandler(contentPanel.owner.TabsButtonMouseMove);
+
+            btn.ForeColor = owner.foreColor;
+            btn.BackColor = owner.backColor;
+
+            Button closeBtn = tab.GetCloseButton();
+            closeBtn.Click -= closeTab;
+            closeBtn.Click += new EventHandler(contentPanel.closeTab);
+        }
+
+        // Remove all event handlers from the control's named event.
+        private void RemoveEvent(Control ctl, string event_name)
+        {
+            FieldInfo field_info = typeof(Control).GetField(event_name,
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            PropertyInfo property_info = ctl.GetType().GetProperty("Events",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            object obj = field_info.GetValue(ctl);
+            EventHandlerList event_handlers =
+                (EventHandlerList)property_info.GetValue(ctl, null);
+            event_handlers.RemoveHandler(obj, event_handlers[obj]);
         }
 
         public Tab getTabsButton(Button btn)
@@ -521,10 +671,18 @@ namespace SDDBrowser
         delegate void SetBoolCallback(bool enabled);
         private void setBackButtonEnabled(bool enabled)
         {
-            if (backButton.InvokeRequired)
+            if (owner.isDead) return;
+            if (backButton.InvokeRequired && !backButton.IsDisposed)
             {
                 var d = new SetBoolCallback(setBackButtonEnabled);
-                backButton.Invoke(d, new object[] { enabled });
+                try
+                {
+                    owner.Invoke(d, new object[] { enabled });
+                }
+                catch (ObjectDisposedException e)
+                {
+
+                }
             }
             else
             {
@@ -550,6 +708,7 @@ namespace SDDBrowser
 
         private void setBackButtonForeColor(Color color)
         {
+            if (owner.isDead) return;
             if (backButton.InvokeRequired)
             {
                 var d = new SetColorCallback(setBackButtonForeColor);
@@ -564,10 +723,11 @@ namespace SDDBrowser
 
         private void setForwardButtonForeColor(Color color)
         {
+            if (owner.isDead) return;
             if (forwardButton.InvokeRequired)
             {
                 var d = new SetColorCallback(setForwardButtonForeColor);
-                forwardButton.Invoke(d, new object[] { color });
+                owner.Invoke(d, new object[] { color });
             }
             else
             {

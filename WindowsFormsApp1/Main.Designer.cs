@@ -33,6 +33,7 @@ namespace SDDWebBrowser
             this.components = new System.ComponentModel.Container();
             this.Content = new System.Windows.Forms.Panel();
             this.Tabs = new System.Windows.Forms.Panel();
+            this.newTabBtn = new System.Windows.Forms.Button();
             this.contentHeader = new System.Windows.Forms.Panel();
             this.Bookmarks = new System.Windows.Forms.Panel();
             this.reloadButton = new System.Windows.Forms.Button();
@@ -45,7 +46,6 @@ namespace SDDWebBrowser
             this.minimiseButton = new System.Windows.Forms.Button();
             this.minimiseToolTip = new System.Windows.Forms.ToolTip(this.components);
             this.closeToolTip = new System.Windows.Forms.ToolTip(this.components);
-            this.newTabBtn = new System.Windows.Forms.Button();
             this.Tabs.SuspendLayout();
             this.contentHeader.SuspendLayout();
             this.SuspendLayout();
@@ -70,6 +70,15 @@ namespace SDDWebBrowser
             this.Tabs.Name = "Tabs";
             this.Tabs.Size = new System.Drawing.Size(1140, 70);
             this.Tabs.TabIndex = 0;
+            // 
+            // newTabBtn
+            // 
+            this.newTabBtn.Location = new System.Drawing.Point(3, 7);
+            this.newTabBtn.Name = "newTabBtn";
+            this.newTabBtn.Size = new System.Drawing.Size(50, 50);
+            this.newTabBtn.TabIndex = 0;
+            this.newTabBtn.Text = "+";
+            this.newTabBtn.UseVisualStyleBackColor = true;
             // 
             // contentHeader
             // 
@@ -140,6 +149,7 @@ namespace SDDWebBrowser
             this.searchIcon.TabIndex = 1;
             this.searchIcon.Text = "G";
             this.searchIcon.UseVisualStyleBackColor = true;
+            this.searchIcon.Click += new System.EventHandler(this.searchIcon_Click);
             // 
             // textURL
             // 
@@ -192,15 +202,6 @@ namespace SDDWebBrowser
             this.minimiseToolTip.SetToolTip(this.minimiseButton, "Minimise");
             this.minimiseButton.UseVisualStyleBackColor = false;
             this.minimiseButton.Click += new System.EventHandler(this.minimiseButton_Click);
-            // 
-            // newTabBtn
-            // 
-            this.newTabBtn.Location = new System.Drawing.Point(3, 7);
-            this.newTabBtn.Name = "newTabBtn";
-            this.newTabBtn.Size = new System.Drawing.Size(50, 50);
-            this.newTabBtn.TabIndex = 0;
-            this.newTabBtn.Text = "+";
-            this.newTabBtn.UseVisualStyleBackColor = true;
             // 
             // Main
             // 

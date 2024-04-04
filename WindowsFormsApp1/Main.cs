@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IdentityModel.Tokens;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.ServiceModel.Security;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using CefSharp;
@@ -21,6 +23,7 @@ using Windows.System;
 using Windows.UI.Input;
 using Windows.UI.ViewManagement;
 
+
 namespace SDDWebBrowser
 {
     public partial class Main : Form
@@ -28,6 +31,10 @@ namespace SDDWebBrowser
         public Main()
         {
             InitializeComponent();
+            ContentPanel contentPanel = new ContentPanel(this, "top");
+            contentPanels.Add(contentPanel);
+            contentPanel.generateNewTab(ContentPanel.defaultURL);
+            newTabBtn.Click += new EventHandler(contentPanel.newTabBtn_Click);
         }
 
         public List<string> domains;
@@ -41,7 +48,8 @@ namespace SDDWebBrowser
         long lastFocused = 0;
         public bool isDead;
         int debug = 0;
-        Size lastSize; 
+        Size lastSize;
+        Rectangle lastContentSize;
         bool loaded;
         protected bool isDragging = false;
         bool wasFullScreen = false;
@@ -49,6 +57,7 @@ namespace SDDWebBrowser
         int resizeWidth = 3;
         int edgeResizeWidth = 50;
         List<Control> edges = new List<Control>();
+        List<Control> borders = new List<Control>();
         UISettings uiSettings;
         public Color accentColor;
         public Color backColor;
@@ -57,7 +66,10 @@ namespace SDDWebBrowser
         Size oldSize;
         bool snapped = false;
         Dictionary<string, Rectangle> positionArea = new Dictionary<string, Rectangle>();
+        Dictionary<(ContentPanel, ContentPanel), Control> bordersCreated = new Dictionary<(ContentPanel, ContentPanel), Control>();
         Control contentSpace;
+        private const int minimumWidthOfContentPanel = 420;
+        private const int minimumHeightOfContentPanel = 328;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, CallingConvention = CallingConvention.StdCall)]
         public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint cButtons, uint dwExtraInfo);
@@ -99,10 +111,7 @@ namespace SDDWebBrowser
             Activated += new EventHandler(form_gotFocus);
             lastFocused = DateTime.UtcNow.Ticks;
 
-            ContentPanel contentPanel = new ContentPanel(this, "top");
-            contentPanels.Add(contentPanel);
-            contentPanel.generateNewTab(ContentPanel.defaultURL);
-            newTabBtn.Click += new EventHandler(contentPanel.newTabBtn_Click);
+            
 
             getColours();
 
@@ -120,7 +129,7 @@ namespace SDDWebBrowser
 
             initialiseFormEdge();
             initialiseTriggers();
-            contentPanel.updateNavButtons();           
+            lastContentSize = contentSpace.Bounds;
         }
 
         protected override void CreateHandle()
@@ -145,11 +154,7 @@ namespace SDDWebBrowser
 
             if (loaded)
             {
-                ResizeWidthControl(Content, Size);
-                ResizeHeightControl(Content, Size);
-                ResizeWidthControl(contentHeader, Size);
-                ResizeWidthControl(textURL, Size);
-                ResizeWidthControl(Tabs, Size);
+                ResizeContentPanels(Size);
                 RepositionWidthPosition(closeButton, Size);
                 RepositionWidthPosition(maximiseButton, Size);
                 RepositionWidthPosition(minimiseButton, Size);
@@ -171,22 +176,59 @@ namespace SDDWebBrowser
                     }
                 }
                 updateTriggers();
+                ResizeBorders();
+                foreach (Control border in bordersCreated.Values)
+                {
+                    border.BringToFront();
+                }
             }
         }
 
-        private void ResizeWidthControl(Control control, Size newSize)
+        private void ResizeBorders()
+        {
+            foreach ((ContentPanel, ContentPanel) pair in bordersCreated.Keys)
+            {
+                Control border = bordersCreated[pair];
+                Controls.Remove(border);
+            }
+            bordersCreated.Clear();
+            foreach (ContentPanel contentPanel in contentPanels)
+            {
+                addEdgesToContentPanel(contentPanel);
+            }
+        }
+
+        private void ResizeContentPanels(Size newSize)
+        {
+            ResizeWidthControl(contentSpace, newSize);
+            ResizeHeightControl(contentSpace, newSize);
+            foreach (ContentPanel panel in contentPanels)
+            {
+                Rectangle rectangle = panel.LastBounds;
+                Rectangle size = new Rectangle();
+                float xScale = (float)contentSpace.Width / (float)lastContentSize.Width;
+                float yScale = (float)contentSpace.Height / (float)lastContentSize.Height;
+                size.X = (int)((rectangle.X - contentSpace.Left) * xScale) + contentSpace.Left;
+                size.Y = (int)((rectangle.Y - contentSpace.Top) * yScale) + contentSpace.Top;
+                size.Width = (int)(rectangle.Width * xScale);
+                size.Height = (int)(rectangle.Height * yScale);
+                panel.setSizeAndPosition(size);
+            }
+        }
+
+        internal void ResizeWidthControl(Control control, Size newSize)
         {
             int width = newSize.Width - lastSize.Width;
             control.Width += width;
         }
 
-        private void ResizeHeightControl(Control control, Size newSize)
+        internal void ResizeHeightControl(Control control, Size newSize)
         {
             int height = newSize.Height - lastSize.Height;
             control.Height += height;
         }
 
-        private void RepositionWidthPosition(Control control, Size newSize)
+        internal void RepositionWidthPosition(Control control, Size newSize)
         {
             int width = newSize.Width - lastSize.Width;
             control.Left += width;
@@ -463,8 +505,8 @@ namespace SDDWebBrowser
 
         private void updateTriggers()
         {
-            int triggerWidth = contentHeader.Location.X;
-            int triggerHeight = contentHeader.Location.Y;
+            int triggerWidth = contentSpace.Location.X;
+            int triggerHeight = contentSpace.Location.Y;
             triggers = new Trigger[3] {
                 new Trigger("left",
                 new Rectangle(0, 0, triggerWidth, Height), this),
@@ -476,17 +518,15 @@ namespace SDDWebBrowser
             triggerAreas = triggers.ToList();
             foreach (ContentPanel contentPanel in contentPanels)
             {
-                triggerAreas.Add(controlToTrigger(contentPanel.Tabs));
+                triggerAreas.Add(controlToTrigger(contentPanel.Tabs, contentPanel.position));
             }
         }
 
-        private Trigger controlToTrigger(Control control)
+        private Trigger controlToTrigger(Control control, string position)
         {
             Point location = PointToScreen(control.Location);
-            Console.WriteLine(location);
             Rectangle rectangle = new Rectangle(location.X - Left, location.Y - Top, control.Width, control.Height);
-            Console.WriteLine(rectangle);
-            return new Trigger(Tabs.Name, rectangle, this);
+            return new Trigger(position, rectangle, this);
         }
 
         private void initialiseTriggers()
@@ -635,13 +675,11 @@ namespace SDDWebBrowser
 
         private void mergeContentPanel()
         {
-            foreach(ContentPanel panelMergingFrom in contentPanels)
+            List<ContentPanel> Panels = new List<ContentPanel>();
+            Panels.AddRange(contentPanels);
+            foreach(ContentPanel panelMergingFrom in Panels)
             {
                 List<Tab> tabs = panelMergingFrom.tabs;
-                foreach (Tab tab in tabs)
-                {
-                    transferTabEvents(tab, this, appMergingTo);
-                }
                 ContentPanel panelMergingTo = appMergingTo.contentPanels.Find(p => p.position == positionMergingTo);
                 if (panelMergingTo is null)
                 {
@@ -651,6 +689,11 @@ namespace SDDWebBrowser
                         panelMergingTo = appMergingTo.newContentPanel(positionMergingTo);
                     }
                 }
+                
+                foreach (Tab tab in tabs)
+                {
+                    transferTabEventsForPanel(tab, panelMergingFrom, panelMergingTo);
+                }
                 panelMergingTo.ExtendTabs(tabs);
             }            
         }
@@ -659,12 +702,11 @@ namespace SDDWebBrowser
         {
             ContentPanel content = new ContentPanel(this, position);
             contentPanels.Add(content);
-
             Size table = getTablesize();
             Size gridSize = getGridSize();
             List<Rectangle> rectangles = getRectangles();
             IEnumerable<IGrouping<int, Rectangle>> columns = rectangles.GroupBy(r => r.X);
-            content.generateAllPanels(new Rectangle(contentSpace.Location.X, contentSpace.Location.Y, contentSpace.Width, contentSpace.Height));
+            content.generateAllPanels(contentSpace.Bounds);
             foreach (ContentPanel contentPanel in contentPanels)
             {
                 Rectangle rectangle;
@@ -674,14 +716,431 @@ namespace SDDWebBrowser
                     int downExtension = extendRectangleHeightDown(rectangle.Y + rectangle.Height, rectangle.X, table.Height, rectangle.Width + rightExtension, rectangles);
                     int leftExtension = extendRectangleWidthLeft(rectangle.X + rectangle.Width, rectangle.Y, table.Width, rectangle.Height, rectangles);
                     int upExtension = extendRectangleHeightUp(rectangle.Y + rectangle.Height, rectangle.X, table.Height, rectangle.Width + rightExtension, rectangles);
-                    rectangle.X = (rectangle.X - leftExtension) * gridSize.Width + contentSpace.Location.X;
-                    rectangle.Y = (rectangle.Y - upExtension) * gridSize.Height + contentSpace.Location.Y;
+                    rectangle.X = (rectangle.X - leftExtension)*gridSize.Width + contentSpace.Left;
+                    rectangle.Y = (rectangle.Y - upExtension) * gridSize.Height + contentSpace.Top;
                     rectangle.Width = (rectangle.Width + rightExtension + leftExtension) * gridSize.Width;
                     rectangle.Height = (rectangle.Height + downExtension + upExtension) * gridSize.Height;
+                    contentPanel.LastBounds = rectangle;
                     contentPanel.setSizeAndPosition(rectangle);
                 }
             }
+
+            ResizeBorders();
+
+            lastContentSize = contentSpace.Bounds;
+            //OnResize(new EventArgs());
+            updateTriggers();
+            foreach (Control border in bordersCreated.Values)
+            {
+                border.BringToFront();
+            }
             return content;
+        }
+
+        private void addEdgesToContentPanel(ContentPanel contentPanel)
+        {
+            Rectangle rectangle = contentPanel.Bounds;
+            Point[] points = new Point[4];
+            points[0] = new Point(rectangle.Left - 1, rectangle.Top);
+            points[1] = new Point(rectangle.Right + 1, rectangle.Top);
+            points[2] = new Point(rectangle.Left, rectangle.Top - 1);
+            points[3] = new Point(rectangle.Left, rectangle.Bottom  + 1);
+
+
+            ContentPanel leftNeighbour = contentPanels.Find(c => PointInRectangle(points[0], c.Bounds) && c != contentPanel);
+            if (leftNeighbour != null)
+            {
+                Rectangle leftNeighbourRect = leftNeighbour.Bounds;
+                (ContentPanel, ContentPanel) contentPair = (contentPanel, leftNeighbour);
+                (ContentPanel, ContentPanel) contentPairReverse = (leftNeighbour, contentPanel);
+                if ((!bordersCreated.Keys.Contains(contentPair)) && (!bordersCreated.Keys.Contains(contentPairReverse)))
+                {
+                    bool sharedBorder = false;
+                    (ContentPanel, ContentPanel) pair = contentPair;
+                    Control b2 = new Control();
+                    foreach ((ContentPanel c1, ContentPanel c2) in bordersCreated.Keys)
+                    {
+                        if ((c1 == leftNeighbour && bordersCreated[(c1, c2)].Name == "Right") || (c2 == leftNeighbour && bordersCreated[(c1, c2)].Name == "Left"))
+                        {
+                            pair = (c1, c2);
+                            b2 = bordersCreated[pair];
+                            ContentPanel sharedNeighbour;
+                            if (c1 == leftNeighbour)
+                            {
+                                sharedNeighbour = c2;
+                            }
+                            else
+                            {
+                                sharedNeighbour = c1;
+                            }
+                            
+                            sharedBorder = true;
+                            b2.MouseMove += delegate (object sender, MouseEventArgs e)
+                            {
+                                if (isDragging)
+                                {
+                                    contentPanel.setSizeAndPosition(new Rectangle(sharedNeighbour.Bounds.Left, contentPanel.Bounds.Top, sharedNeighbour.Bounds.Width, contentPanel.Bounds.Height));
+                                    setLastBounds();
+                                    IEnumerable<Control> otherBorders = bordersCreated.Keys.Where(c => c.Item1 == contentPanel || c.Item2 == contentPanel).Select(c => bordersCreated[c]);
+                                    foreach (Control b in otherBorders)
+                                    {
+                                        if (b.Width != resizeWidth)
+                                        {
+                                            b.Width = sharedNeighbour.Bounds.Width;
+                                            b.Location = new Point(sharedNeighbour.Bounds.Left, b.Location.Y);
+                                        }
+                                    }
+                                }
+                            };
+                            b2.Left = Math.Min(rectangle.Left - resizeWidth / 2, b2.Left);
+                            b2.Top = Math.Min(rectangle.Top, b2.Top);
+                            b2.Height += rectangle.Height;
+                            b2.BringToFront();
+                        }
+                    }
+                    if (sharedBorder)
+                    {
+                        bordersCreated[pair] = b2;
+                    }
+                    else 
+                    {
+                        UserControl border = new UserControl()
+                        {
+                            Left = rectangle.Left - resizeWidth / 2,
+                            Top = rectangle.Top,
+                            Height = rectangle.Height,
+                            Width = resizeWidth,
+                            BackColor = accentColor,
+                            Cursor = Cursors.SizeWE,
+                            Name = "Left"
+                        };
+                        border.MouseDown += form_MouseDown;
+                        border.MouseUp += mouseUp;
+                        border.MouseMove += delegate (object sender, MouseEventArgs e)
+                        {
+                            if (isDragging)
+                            {
+                                int diff = (e.Location.X - lastRectangle.X);
+                                leftNeighbourRect = leftNeighbour.Bounds;
+
+                                if (minimumWidthOfContentPanel < (rectangle.Width - diff) && minimumWidthOfContentPanel < (leftNeighbourRect.Width + diff))
+                                {
+                                    rectangle.Width -= diff;
+                                    rectangle.X += diff;
+                                    leftNeighbourRect.Width += diff;
+                                    contentPanel.setSizeAndPosition(rectangle);
+                                    leftNeighbour.setSizeAndPosition(leftNeighbourRect);
+                                    setLastBounds();
+                                    border.Location = new Point(border.Location.X + diff, border.Location.Y);
+                                }
+                            }
+                        };
+                        border.BringToFront();
+                        bordersCreated[contentPair] = border;
+                        Controls.Add(border);
+                    }
+                }
+            }
+
+
+            ContentPanel rightNeighbour = contentPanels.Find(c => PointInRectangle(points[1], c.Bounds) && c != contentPanel);
+            if (rightNeighbour != null)
+            {
+
+                Rectangle rightNeighbourRect = rightNeighbour.Bounds;
+                (ContentPanel, ContentPanel) contentPair = (contentPanel, rightNeighbour);
+                (ContentPanel, ContentPanel) contentPairReverse = (rightNeighbour, contentPanel);
+                if ((!bordersCreated.Keys.Contains(contentPair)) && (!bordersCreated.Keys.Contains(contentPairReverse)))
+                {
+                    bool sharedBorder = false;
+                    (ContentPanel, ContentPanel) pair = contentPair;
+                    Control b2 = new Control();
+                    foreach ((ContentPanel c1, ContentPanel c2) in bordersCreated.Keys)
+                    {
+                        if ((c1 == rightNeighbour && bordersCreated[(c1, c2)].Name == "Left") || (c2 == rightNeighbour && bordersCreated[(c1, c2)].Name == "Right"))
+                        {
+                            pair = (c1, c2);
+                            b2 = bordersCreated[pair];
+                            ContentPanel sharedNeighbour;
+                            if (c1 == rightNeighbour)
+                            {
+                                sharedNeighbour = c2;
+                            }
+                            else
+                            {
+                                sharedNeighbour = c1;
+                            }
+
+                            sharedBorder = true;
+                            b2.MouseMove += delegate (object sender, MouseEventArgs e)
+                            {
+                                if (isDragging)
+                                {
+                                    contentPanel.setSizeAndPosition(new Rectangle(sharedNeighbour.Bounds.Left, contentPanel.Bounds.Top, sharedNeighbour.Bounds.Width, contentPanel.Bounds.Height));
+                                    setLastBounds();
+                                    IEnumerable<Control> otherBorders = bordersCreated.Keys.Where(c => c.Item1 == contentPanel || c.Item2 == contentPanel).Select(c => bordersCreated[c]);
+                                    foreach (Control b in otherBorders)
+                                    {
+                                        if (b.Width != resizeWidth)
+                                        {
+                                            b.Width = sharedNeighbour.Bounds.Width;
+                                        }
+                                    }
+                                }
+                            };
+                            b2.Left = Math.Min(rectangle.Right - resizeWidth / 2, b2.Left);
+                            b2.Top = Math.Min(rectangle.Top, b2.Top);
+                            b2.Height += rectangle.Height;
+                            b2.BringToFront();
+                        }
+                    }
+                    if (sharedBorder)
+                    {
+                        bordersCreated[pair] = b2;
+                    }
+                    else
+                    {
+                        UserControl border = new UserControl()
+                        {
+                            Left = rectangle.Right - resizeWidth / 2,
+                            Top = rectangle.Top,
+                            Height = rectangle.Height,
+                            Width = resizeWidth,
+                            BackColor = accentColor,
+                            Cursor = Cursors.SizeWE,
+                            Name = "Right"
+                        };
+                        border.MouseDown += form_MouseDown;
+                        border.MouseUp += mouseUp;
+                        border.MouseMove += delegate (object sender, MouseEventArgs e)
+                        {
+                            if (isDragging)
+                            {
+                                int diff = (e.Location.X - lastRectangle.X);
+                                rightNeighbourRect = rightNeighbour.Bounds;
+
+                                if (minimumWidthOfContentPanel < (rectangle.Width + diff) && minimumWidthOfContentPanel < (rightNeighbourRect.Width - diff))
+                                {
+                                    rectangle.Width += diff;
+                                    rightNeighbourRect.X += diff;
+                                    rightNeighbourRect.Width -= diff;
+                                    contentPanel.setSizeAndPosition(rectangle);
+                                    rightNeighbour.setSizeAndPosition(rightNeighbourRect);
+                                    setLastBounds();
+                                    border.Location = new Point(border.Location.X + diff, border.Location.Y);
+                                }
+                            }
+                        };
+                        bordersCreated[contentPair] = border;
+                        Controls.Add(border);
+                        border.BringToFront();
+                    }
+                }
+            }
+
+
+            ContentPanel topNeighbour = contentPanels.Find(c => PointInRectangle(points[2], c.Bounds) && c != contentPanel);
+            if (topNeighbour != null)
+            {
+                Rectangle topNeighbourRect = topNeighbour.Bounds;
+                (ContentPanel, ContentPanel) contentPair = (contentPanel, topNeighbour);
+                (ContentPanel, ContentPanel) contentPairReverse = (topNeighbour, contentPanel);
+                if ((!bordersCreated.Keys.Contains(contentPair)) && (!bordersCreated.Keys.Contains(contentPairReverse)))
+                {
+                    bool sharedBorder = false;
+                    (ContentPanel, ContentPanel) pair = contentPair;
+                    Control b2 = new Control();
+                    foreach ((ContentPanel c1, ContentPanel c2) in bordersCreated.Keys)
+                    {
+                        if ((c1 == topNeighbour && bordersCreated[(c1, c2)].Name == "Bottom") || (c2 == topNeighbour && bordersCreated[(c1, c2)].Name == "Top"))
+                        {
+                            pair = (c1, c2);
+                            b2 = bordersCreated[pair];
+                            ContentPanel sharedNeighbour;
+                            if (c1 == topNeighbour)
+                            {
+                                sharedNeighbour = c2;
+                            }
+                            else
+                            {
+                                sharedNeighbour = c1;
+                            }
+
+                            sharedBorder = true;
+                            b2.MouseMove += delegate (object sender, MouseEventArgs e)
+                            {
+                                if (isDragging)
+                                {
+                                    contentPanel.setSizeAndPosition(new Rectangle(contentPanel.Bounds.Left, sharedNeighbour.Bounds.Top, contentPanel.Bounds.Width, sharedNeighbour.Bounds.Height));
+                                    setLastBounds();
+                                    IEnumerable<Control> otherBorders = bordersCreated.Keys.Where(c => c.Item1 == contentPanel || c.Item2 == contentPanel).Select(c => bordersCreated[c]);
+                                    foreach (Control b in otherBorders)
+                                    {
+                                        if (b.Width != resizeWidth)
+                                        {
+                                            b.Height = sharedNeighbour.Bounds.Height;
+                                            b.Location = new Point(b.Location.X, sharedNeighbour.Bounds.Top);
+                                        }
+                                    }
+                                }
+                            };
+                            b2.Left = Math.Min(rectangle.Left, b2.Left);
+                            b2.Top = Math.Min(rectangle.Top - resizeWidth / 2, b2.Top);
+                            b2.Width += rectangle.Width;
+                            b2.BringToFront();
+                        }
+                    }
+                    if (sharedBorder)
+                    {
+                        bordersCreated[pair] = b2;
+                    }
+                    else
+                    {
+                        UserControl border = new UserControl()
+                        {
+                            Left = rectangle.Left,
+                            Top = rectangle.Top - resizeWidth / 2,
+                            Height = resizeWidth,
+                            Width = rectangle.Width,
+                            BackColor = accentColor,
+                            Cursor = Cursors.SizeNS,
+                            Name = "Top"
+                        };
+                        border.MouseDown += form_MouseDown;
+                        border.MouseUp += mouseUp;
+                        border.MouseMove += delegate (object sender, MouseEventArgs e)
+                        {
+                            if (isDragging)
+                            {
+                                topNeighbourRect = topNeighbour.Bounds;
+                                int diff = (e.Location.Y - lastRectangle.Y);
+
+                                if (minimumHeightOfContentPanel < (rectangle.Height - diff) && minimumHeightOfContentPanel < (topNeighbourRect.Height + diff))
+                                {
+                                    rectangle.Height -= diff;
+                                    rectangle.Y += diff;
+                                    topNeighbourRect.Height += diff;
+                                    contentPanel.setSizeAndPosition(rectangle);
+                                    topNeighbour.setSizeAndPosition(topNeighbourRect);
+                                    setLastBounds();
+                                    border.Location = new Point(border.Location.X, border.Location.Y + diff);
+                                }
+                            }
+                        };
+                        border.BringToFront();
+                        bordersCreated[contentPair] = border;
+                        Controls.Add(border);
+                    }
+                }
+            }
+
+
+            ContentPanel bottomNeighbour = contentPanels.Find(c => PointInRectangle(points[3], c.Bounds) && c != contentPanel);
+            if (bottomNeighbour != null)
+            {
+                Rectangle bottomNeighbourRect = bottomNeighbour.Bounds;
+                (ContentPanel, ContentPanel) contentPair = (contentPanel, bottomNeighbour);
+                (ContentPanel, ContentPanel) contentPairReverse = (bottomNeighbour, contentPanel);
+                if ((!bordersCreated.Keys.Contains(contentPair)) && (!bordersCreated.Keys.Contains(contentPairReverse)))
+                {
+
+                    bool sharedBorder = false;
+                    (ContentPanel, ContentPanel) pair = contentPair;
+                    Control b2 = new Control();
+                    foreach ((ContentPanel c1, ContentPanel c2) in bordersCreated.Keys)
+                    {
+                        if ((c1 == bottomNeighbour && bordersCreated[(c1, c2)].Name == "Bottom") || (c2 == bottomNeighbour && bordersCreated[(c1, c2)].Name == "Top"))
+                        {
+                            pair = (c1, c2);
+                            b2 = bordersCreated[pair];
+                            ContentPanel sharedNeighbour;
+                            if (c1 == bottomNeighbour)
+                            {
+                                sharedNeighbour = c2;
+                            }
+                            else
+                            {
+                                sharedNeighbour = c1;
+                            }
+
+                            sharedBorder = true;
+                            b2.MouseMove += delegate (object sender, MouseEventArgs e)
+                            {
+                                if (isDragging)
+                                {
+                                    contentPanel.setSizeAndPosition(new Rectangle(contentPanel.Bounds.Left, sharedNeighbour.Bounds.Top, contentPanel.Bounds.Width, sharedNeighbour.Bounds.Height));
+                                    setLastBounds();
+                                    IEnumerable<Control> otherBorders = bordersCreated.Keys.Where(c => c.Item1 == contentPanel || c.Item2 == contentPanel).Select(c => bordersCreated[c]);
+                                    foreach (Control b in otherBorders)
+                                    {
+                                        if (b.Width != resizeWidth)
+                                        {
+                                            b.Height = sharedNeighbour.Bounds.Height;
+                                        }
+                                    }
+                                }
+                            };
+                            b2.Left = Math.Min(rectangle.Left, b2.Left);
+                            b2.Top = Math.Min(rectangle.Bottom - resizeWidth / 2, b2.Top);
+                            b2.Width += rectangle.Width;
+                            b2.BringToFront();
+                        }
+                    }
+                    if (sharedBorder)
+                    {
+                        bordersCreated[pair] = b2;
+                    }
+                    else
+                    {
+                        UserControl border = new UserControl()
+                        {
+                            Left = rectangle.Left,
+                            Top = rectangle.Bottom - resizeWidth / 2,
+                            Height = resizeWidth,
+                            Width = rectangle.Width,
+                            BackColor = accentColor,
+                            Cursor = Cursors.SizeNS,
+                            Name = "Bottom"
+                        };
+                        border.MouseDown += form_MouseDown;
+                        border.MouseUp += mouseUp;
+                        border.MouseMove += delegate (object sender, MouseEventArgs e)
+                        {
+                            if (isDragging)
+                            {
+                                int diff = (e.Location.Y - lastRectangle.Y);
+                                bottomNeighbourRect = bottomNeighbour.Bounds;
+
+                                if (minimumHeightOfContentPanel < (rectangle.Height + diff) && minimumHeightOfContentPanel < (bottomNeighbourRect.Height - diff))
+                                {
+                                    rectangle.Height += diff;
+                                    bottomNeighbourRect.Y += diff;
+                                    bottomNeighbourRect.Height -= diff;
+                                    contentPanel.setSizeAndPosition(rectangle);
+                                    bottomNeighbour.setSizeAndPosition(bottomNeighbourRect);
+                                    setLastBounds();
+                                    border.Location = new Point(border.Location.X, border.Location.Y + diff);
+                                    Debug.WriteLine("X: {0}", bottomNeighbourRect.X);
+                                }
+                            }
+                        };
+                        border.BringToFront();
+                        bordersCreated[contentPair] = border;
+                        Controls.Add(border);
+                    }
+                    
+                    
+                }
+            }
+        }
+
+        private void setLastBounds()
+        {
+            lastContentSize = contentSpace.Bounds;
+            foreach (ContentPanel contentPanel in contentPanels)
+            {
+                contentPanel.LastBounds = contentPanel.Bounds;
+            }
         }
 
         private int extendRectangleWidthRight(int startX, int startY, int maxExtension, int thickness, List<Rectangle> rectangles)
@@ -977,13 +1436,16 @@ namespace SDDWebBrowser
             {
                 tab.isDragging = true;
                 tab.isMouseDown = false;
+                Debug.WriteLine(this);
+                ContentPanel contentPanel = contentPanels.Find(c => c.tabs.Contains(tab));
                 List<Tab> newTabList = new List<Tab>() 
                 { 
                     tab 
                 };
                 Main newApp = new Main();
-                transferTabEvents(tab, this, newApp);
-                
+                transferTabEventsForPanel(tab, contentPanel, newApp.contentPanels[0]);
+
+
                 getContentPanelFromTab(tab).closeTab(tab.GetCloseButton(), e);
 
                 //popup.isDragging = true;
@@ -998,7 +1460,7 @@ namespace SDDWebBrowser
                     SendMessage(newApp.Handle, (int)WMessages.WM_LBUTTONDOWN, 0, MAKELPARAM(0, 0));
                     //https://stackoverflow.com/questions/19237034/c-sharp-need-to-psuedo-click-a-window
                     Console.WriteLine("loaded");
-                    newApp.contentPanels[0].SetTabs(newTabList);
+                    newApp.contentPanels[0].SetTabs(newTabList, contentPanel);
                 };
                 newApp.Text = Application.OpenForms.Count.ToString();
                 newApp.Show();
@@ -1024,7 +1486,7 @@ namespace SDDWebBrowser
                     return tab;
                 }
             }
-            throw new ArgumentException();
+            return null;
         }
 
         private ContentPanel getContentPanelFromTab(Tab tab)
@@ -1039,17 +1501,16 @@ namespace SDDWebBrowser
             throw new ArgumentException();
         }
 
-        public void transferTabEvents(Tab tab, Main fromApp, Main toApp)
+        internal void transferTabEventsForPanel(Tab tab, ContentPanel fromPanel, ContentPanel toPanel)
         {
-            tab.GetButton().MouseMove -= fromApp.TabsButtonMouseMove;
-            tab.GetButton().MouseMove += new MouseEventHandler(toApp.TabsButtonMouseMove);
+            fromPanel.transferTabEventsTo(toPanel, tab);
         }
 
         public void updateMergingApp()
         {
             //getFrontmostApp(appsHoveringOver);
             Main highestwindow = GetHighestWindowThatIsNotThis(f => PointInTriggers(MousePosition, f.triggerAreas));
-            
+
             if (highestwindow == null)
             {
                 appMergingTo = null;
@@ -1060,7 +1521,9 @@ namespace SDDWebBrowser
             else
             {
                 appMergingTo = highestwindow;
-                positionMergingTo = appMergingTo.triggerAreas.Find(t => PointInRectangle(MousePosition, t.getRectangleOnScreen())).Name;
+                Trigger trigger = appMergingTo.triggerAreas.Find(t => PointInRectangle(MousePosition, t.getRectangleOnScreen()));
+                if (trigger == null) { return; }
+                positionMergingTo = trigger.Name;
                 isMergingToApp = true;
                 Opacity = 0.6;
             }
@@ -1149,6 +1612,11 @@ namespace SDDWebBrowser
             {
                 Application.Exit(); // Close the application when all windows are closed
             }
+        }
+
+        private void searchIcon_Click(object sender, EventArgs e)
+        {
+            Debug.Write(this);
         }
     }
 }

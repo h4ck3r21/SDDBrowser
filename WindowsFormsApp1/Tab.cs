@@ -36,6 +36,7 @@ namespace SDDTabs
             closeButton.TextAlign = ContentAlignment.MiddleCenter;
             closeButton.FlatStyle = FlatStyle.Flat;
             closeButton.FlatAppearance.BorderSize = 0;
+            SetButtonText("loading...");
         }
 
         public Button GetButton()
@@ -80,7 +81,14 @@ namespace SDDTabs
             if (button.InvokeRequired)
             {
                 var d = new SetStringCallback(SetButtonText);
-                button.Invoke(d, new object[] { text });
+                try
+                {
+                    button.Invoke(d, new object[] { text });
+                }
+                catch (ObjectDisposedException e)
+                {
+
+                }
             }
             else
             {
