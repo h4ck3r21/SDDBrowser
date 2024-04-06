@@ -1,4 +1,6 @@
 ﻿using CefSharp;
+using CefSharp.DevTools.Audits;
+using CefSharp.Web;
 using CefSharp.WinForms;
 using SDDTabs;
 using SDDWebBrowser;
@@ -12,10 +14,12 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Windows.ApplicationModel.Background;
+using static System.Collections.Specialized.BitVector32;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace SDDBrowser
@@ -32,7 +36,9 @@ namespace SDDBrowser
         Button reloadButton;
         Button forwardButton;
         Button backButton;
+        Button addBookmarksButton;
         Panel contentHeader;
+        Panel Bookmarks;
         public List<Tab> tabs = new List<Tab>();
         Main owner;
         public string position;
@@ -43,6 +49,10 @@ namespace SDDBrowser
         List<string> historyStack = new List<string>();
         public Rectangle Bounds;
         public Rectangle LastBounds;
+        BookmarkFolder bookmarksFolder;
+        string bookmarkFileName;
+        int tabStartx = 0;
+        int bookmarkStartx = 0;
 
         public ContentPanel(Main form, string position)
         {
@@ -54,49 +64,131 @@ namespace SDDBrowser
             reloadButton = (Button)contentHeader.Controls.Find("reloadButton", true)[0];
             forwardButton = (Button)contentHeader.Controls.Find("forwardButton", true)[0];
             backButton = (Button)contentHeader.Controls.Find("backButton", true)[0];
+            addBookmarksButton = (Button)contentHeader.Controls.Find("addBookmarkButton", true)[0];
             Tabs = (Panel)form.Controls.Find("Tabs", true)[0];
             Content = (Panel)form.Controls.Find("Content", true)[0];
+            Bookmarks = (Panel)form.Controls.Find("Bookmarks", true)[0];
             newTabBtn = owner.getNewTabButton();
+
+            addEvents();
+
+            Bounds = new Rectangle(contentHeader.Left, contentHeader.Top, contentHeader.Width, contentHeader.Height + Tabs.Height + Content.Height);
+            LastBounds = Bounds;
+            updateNavButtons();
+            bookmarkFileName = $"Bookmarks_{position}";
+        }
+
+        private void addEvents()
+        {
             reloadButton.Click += new EventHandler(reloadButton_Click);
             forwardButton.Click += new EventHandler(this.forwardButton_Click);
             backButton.Click += new EventHandler(this.backButton_Click);
             textURL.TextChanged += new EventHandler(this.textURL_TextChanged);
             textURL.KeyDown += new KeyEventHandler(this.textURL_KeyDown);
+            addBookmarksButton.Click += new EventHandler(this.addBookmarksButton_Click);
             forwardButton.Paint += new PaintEventHandler(this.forwardButton_Paint);
             backButton.Paint += new PaintEventHandler(this.backButton_Paint);
-
-            Bounds = new Rectangle(contentHeader.Left, contentHeader.Top, contentHeader.Width, contentHeader.Height + Tabs.Height + Content.Height);
-            LastBounds = Bounds;
-            updateNavButtons();
+            owner.Load += Owner_Load;
+            Tabs.MouseWheel += Tabs_MouseWheel;
+            Bookmarks.MouseWheel += Bookmarks_MouseWheel;
         }
 
-        public void generateAllPanels(Rectangle area)
+        private void removeEvents()
         {
             reloadButton.Click -= reloadButton_Click;
             forwardButton.Click -= forwardButton_Click;
             backButton.Click -= backButton_Click;
             textURL.TextChanged -= textURL_TextChanged;
             textURL.KeyDown -= textURL_KeyDown;
-            forwardButton.Paint -=  forwardButton_Paint;
+            addBookmarksButton.Click -= addBookmarksButton_Click;
+            forwardButton.Paint -= forwardButton_Paint;
             backButton.Paint -= backButton_Paint;
+            owner.Load -= Owner_Load;
+            Tabs.MouseWheel -= Tabs_MouseWheel;
+            Bookmarks.MouseWheel -= Bookmarks_MouseWheel;
+        }
+
+        private void Tabs_MouseWheel(object sender, MouseEventArgs e)
+        {
+            
+            int totalLength = tabs.Sum(t => t.GetButton().Width) + newTabBtn.Width;
+            int newStart = tabStartx + e.Delta;
+            if (newStart <= 0 && (tabStartx + totalLength > Tabs.Width || e.Delta > 0))
+            {
+                tabStartx = newStart;
+            }
+            updateTabs();
+        }
+
+        private void Bookmarks_MouseWheel(object sender, MouseEventArgs e)
+        {
+
+            int totalLength = bookmarksFolder.bookmarks.Sum(b => b.button.Width);
+            int newStart = bookmarkStartx + e.Delta;
+            if (newStart <= 0 && (bookmarkStartx + totalLength > Bookmarks.Width || e.Delta > 0))
+            {
+                bookmarkStartx = newStart;
+            }
+            updateBookmarks();
+        }
+
+        private void Tabs_MouseHover(object sender, EventArgs e)
+        {
+            if (Control.MouseButtons == MouseButtons.Middle)
+            {
+                throw new NotImplementedException();
+            }
+            Debug.WriteLineIf(Control.MouseButtons != MouseButtons.None, Control.MouseButtons);
+        }
+
+        private void Tabs_Scroll(object sender, ScrollEventArgs e)
+        {
+            Debug.WriteLine(Tabs.HorizontalScroll.Value);
+        }
+
+        
+
+        private void Owner_Load(object sender, EventArgs e)
+        {
+            if (File.Exists(bookmarkFileName))
+            {
+                uploadBookmarks();
+            }
+            else
+            {
+                bookmarksFolder = new BookmarkFolder(position);
+                downloadBookmarks();
+            }
+        }
+
+        public void generateAllPanels(Rectangle area)
+        {
+            removeEvents();
+
             generateNewTabBtn();
             generateNewBackButton();
             generateNewForwardButton();
             generateNewReloadButton();
             generateNewSearchIcon();
+            generateNewAddBookmarksButton();
+            generateNewBookmarks();
             generateNewTextURL();
             generateNewTabsPanel(area);
             tabs = new List<Tab>();
             generateNewContentHeader(area);
-            
             generateNewContentPanel(area);
-            reloadButton.Click += new EventHandler(reloadButton_Click);
-            forwardButton.Click += new EventHandler(this.forwardButton_Click);
-            backButton.Click += new EventHandler(this.backButton_Click);
-            textURL.TextChanged += new EventHandler(this.textURL_TextChanged);
-            textURL.KeyDown += new KeyEventHandler(this.textURL_KeyDown);
-            forwardButton.Paint += new PaintEventHandler(this.forwardButton_Paint);
-            backButton.Paint += new PaintEventHandler(this.backButton_Paint);
+
+            if (File.Exists(bookmarkFileName))
+            {
+                uploadBookmarks();
+            }
+            else
+            {
+                bookmarksFolder = new BookmarkFolder(position);
+                downloadBookmarks();
+            }
+
+            addEvents();
             updateTabs();
             Bounds = area;
         }
@@ -136,6 +228,7 @@ namespace SDDBrowser
                 Name = position,
                 BorderStyle = BorderStyle.FixedSingle,
             };
+            Tabs.HorizontalScroll.Enabled = true;
             Tabs.BringToFront();
             owner.addControl(Tabs);
         }
@@ -165,12 +258,26 @@ namespace SDDBrowser
                 Size = contentHeader.Size,
                 TabIndex = 0
             };
-            //this.contentHeader.Controls.Add(owner.Bookmarks);
-            contentHeader.Controls.Add(reloadButton);
-            contentHeader.Controls.Add(forwardButton);
+            int startx = 0;
+            int y = 0;
             contentHeader.Controls.Add(backButton);
+            backButton.Location = new Point(startx, y);
+            startx += backButton.Width;
+            contentHeader.Controls.Add(forwardButton);
+            forwardButton.Location = new Point(startx, y);
+            startx += forwardButton.Width;
+            contentHeader.Controls.Add(reloadButton);
+            reloadButton.Location = new Point(startx, y);
+            startx += reloadButton.Width;
             contentHeader.Controls.Add(searchIcon);
+            searchIcon.Location = new Point(startx, y);
+            startx += searchIcon.Width;
             contentHeader.Controls.Add(textURL);
+            textURL.Location = new Point(startx, y);
+            startx += textURL.Width;
+            contentHeader.Controls.Add(Bookmarks);
+            contentHeader.Controls.Add(addBookmarksButton);
+            addBookmarksButton.BringToFront();
             contentHeader.BringToFront();
             owner.addControl(contentHeader);
         }
@@ -211,9 +318,9 @@ namespace SDDBrowser
             searchIcon = new Button() 
             {
                 
-                FlatStyle = System.Windows.Forms.FlatStyle.Flat,
+                FlatStyle = FlatStyle.Flat,
                 Font = searchIcon.Font,
-                Location = new System.Drawing.Point(150, 0),
+                Location = searchIcon.Location,
                 Name = "searchIcon",
                 Size = searchIcon.Size,
                 TabIndex = 1,
@@ -221,6 +328,25 @@ namespace SDDBrowser
                 UseVisualStyleBackColor = true,
             };
             this.searchIcon.FlatAppearance.BorderSize = 0;
+
+        }
+
+        public void generateNewAddBookmarksButton()
+        {
+            addBookmarksButton = new Button()
+            {
+
+                FlatStyle = System.Windows.Forms.FlatStyle.Flat,
+                Font = addBookmarksButton.Font,
+                Location = addBookmarksButton.Location,
+                Name = "addBookmarksButton",
+                Size = addBookmarksButton.Size,
+                TabIndex = 1,
+                Text = "❤️",
+                UseVisualStyleBackColor = true,
+                Anchor = AnchorStyles.Right,
+            };
+            this.addBookmarksButton.FlatAppearance.BorderSize = 0;
 
         }
 
@@ -275,6 +401,18 @@ namespace SDDBrowser
             };
             this.backButton.FlatAppearance.BorderSize = 0;
             this.backButton.Paint += new System.Windows.Forms.PaintEventHandler(this.backButton_Paint);
+        }
+
+        public void generateNewBookmarks()
+        {
+            Bookmarks = new Panel()
+            {
+                Location = Bookmarks.Location,
+                Margin = Bookmarks.Margin,
+                Name = "Bookmarks",
+                Size = Bookmarks.Size,
+                TabIndex = 5,
+            };
         }
 
         public void generateNewTab(string Url)
@@ -413,19 +551,33 @@ namespace SDDBrowser
             }
         }
 
+        private void removeBookmarkControl(Button button)
+        {
+            if (owner.isDead || Bookmarks.IsDisposed || button.IsDisposed) return;
+            if (Bookmarks.InvokeRequired || button.InvokeRequired)
+            {
+                var d = new SetButtonCallback(removeBtnControl);
+                Bookmarks.Invoke(d, new object[] { button });
+            }
+            else
+            {
+                Bookmarks.Controls.Remove(button);
+            }
+        }
+
         private void updateTabs()
         {
             if (owner.isDead) return;
             //Debug.WriteLine("Tabs: {0}, Controls:{1}", tabs.Count, Tabs.Controls.Count);
             tabs = tabs.Distinct().ToList();
 
-            int currentXPos = 0;
+            int currentXPos = tabStartx;
             IEnumerable<Button> buttons = tabs.Select(tab => tab.GetButton());
             Control[] controls = new Control[Tabs.Controls.Count];
             Tabs.Controls.CopyTo(controls, 0);
             foreach (Control control in controls)
             {
-                if (!buttons.Contains(control))
+                if (control != newTabBtn && !buttons.Contains(control))
                 {
                     removeBtnControl((Button)control);
 
@@ -443,10 +595,45 @@ namespace SDDBrowser
                 currentXPos += btn.Width;
             }
 
-            Debug.WriteLine("Tabs: {0}, Controls:{1}", tabs.Count, Tabs.Controls.Count);
-            addBtnControl(newTabBtn);
+            //Debug.WriteLine("Tabs: {0}, Controls:{1}", tabs.Count, Tabs.Controls.Count);
+            if (!Tabs.Controls.Contains(newTabBtn))
+            {
+                addBtnControl(newTabBtn);
+            }
             setNewTabButtonLocation(new Point(currentXPos, newTabBtn.Location.Y));
         }
+
+
+        private void updateBookmarks()
+        {
+            if (owner.isDead) return;
+
+            int currentXPos = 0;
+            IEnumerable<Button> buttons = bookmarksFolder.bookmarks.Select(tab => tab.button);
+            Control[] controls = new Control[Bookmarks.Controls.Count];
+            Bookmarks.Controls.CopyTo(controls, 0);
+            foreach (Control control in controls)
+            {
+                if (!buttons.Contains(control))
+                {
+                    removeBookmarkControl((Button)control);
+
+                }
+            }
+
+            foreach (Bookmark bookmark in bookmarksFolder.bookmarks)
+            {
+                Button btn = bookmark.button;
+                changeBtnLocation(btn, new Point(currentXPos, 0));
+                if (!Bookmarks.Controls.Contains(btn))
+                {
+                    addBookmarkControl(btn);
+                }
+                currentXPos += btn.Width;
+            }
+
+        }
+
 
         delegate void SetButtonPointCallback(Button button, Point point);
         private void changeBtnLocation(Button button, Point point)
@@ -485,12 +672,35 @@ namespace SDDBrowser
             }
         }
 
+        private void addBookmarkControl(Button button)
+        {
+            if (owner.isDead || Bookmarks.IsDisposed || button.IsDisposed) return;
+            if (Bookmarks.InvokeRequired || button.InvokeRequired)
+            {
+                var d = new SetButtonCallback(addBtnControl);
+                if (owner.IsHandleCreated)
+                {
+                    Bookmarks.Invoke(d, new object[] { button });
+                }
+                else
+                {
+                    Action invokeTabs = () => Bookmarks.Invoke(d, new object[] { button });
+                    owner.needsHandle.Add(invokeTabs);
+                }
+            }
+            else
+            {
+                Bookmarks.Controls.Add(button);
+            }
+        }
+
         delegate void SetTabsCallback(List<Tab> tabs);
 
 
         delegate void SetPointCallback(Point point);
         private void setNewTabButtonLocation(Point point)
         {
+            if (owner.isDead) { return; }
             if (newTabBtn.InvokeRequired)
             {
                 var d = new SetPointCallback(setNewTabButtonLocation);
@@ -857,6 +1067,181 @@ namespace SDDBrowser
             stringFormat.Dispose();
         }
 
+        private void addBookmarksButton_Click(object sender, EventArgs e)
+        {
+            string title = currentTab.GetButton().Text;
+            string url = currentPage.Address;
+            if (!bookmarksFolder.bookmarks.Select(b => b.url).Contains(url))
+            {
+                addBookmark(url, title);
+                downloadBookmarks();
+
+            }
+            else
+            {
+
+            }
+            
+        }
+
+        public void addBookmark(string url, string title)
+        {
+            Bookmark bookmark = new Bookmark(url, title, this);
+            bookmarksFolder.bookmarks.Add(bookmark);
+            updateBookmarks();
+            addBookmarksButton.BringToFront();
+        }
+
+        public void removeBookmark(string url)
+        {
+            Bookmark bookmark = bookmarksFolder.Find(b => b.url == url)[0];
+            bookmarksFolder.removeBookmark(bookmark);
+        }
+
+        public void downloadBookmarks()
+        {
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string jsonString = JsonSerializer.Serialize(bookmarksFolder.getJSON(), options);
+            File.WriteAllText(bookmarkFileName, jsonString);
+        }
+
+        public void uploadBookmarks()
+        {
+            BookmarkFolderJson json = JsonSerializer.Deserialize<BookmarkFolderJson>(File.ReadAllText(bookmarkFileName));
+            bookmarksFolder = new BookmarkFolder(json, this);
+            updateBookmarks();
+        }
+
+        public void exportBookmarks()
+        {
+            string html = $@"<html>
+                            <head>
+                                <meta http-equiv=""Content-Type"" content=""text/html; charset=UTF-8"">
+                                <title>Bookmarks</title>
+                            </head>
+                            <body>
+                                <h1>Bookmarks</h1>
+                                <dl>
+                                    <p>
+                                    </p>
+                                    <dt>
+                                        <h3>Bookmarks Bar</h3>
+                                        <dl>
+                                            <p>
+                                            </p>
+                                            {bookmarksFolder.toHTML()}
+                                        </d1><p>
+                                        </p>
+                                    </dt>
+                                    <dt>
+                                        
+                                    </dt> 
+                                </dl><p>
+                                </p>
+                            </body>
+                            </html>";
+            SaveFileDialog fileDialog = new SaveFileDialog();
+            fileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            fileDialog.RestoreDirectory = true;
+            fileDialog.Title = "Save As";
+            fileDialog.DefaultExt = "html";
+            fileDialog.Filter = "HTML Document (*.html)|*.html";
+            fileDialog.CheckFileExists = true;
+            fileDialog.CheckPathExists = true;
+            if (fileDialog.ShowDialog() == DialogResult.OK)
+            {
+                File.WriteAllText(fileDialog.FileName, html);
+            }
+            
+        }
+
+        public void importBookmarks()
+        {
+            OpenFileDialog fileDialog = new OpenFileDialog();
+            fileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            fileDialog.RestoreDirectory = true;
+            fileDialog.Title = "Open";
+            fileDialog.DefaultExt = "html";
+            fileDialog.Filter = "HTML Document (*.html)|*.html";
+            if (fileDialog.ShowDialog() == DialogResult.OK)
+            {
+                string html = File.ReadAllText(fileDialog.FileName);
+                List<string> BookmarkFolders = getHTMLTagContent("dl", html);
+                BookmarkFolders.RemoveAt(0);
+                for (int i = 0; i < BookmarkFolders.Count; i++)
+                {
+                    string BookmarkFolder = BookmarkFolders[i];
+                    if (BookmarkFolder.Trim().EndsWith(">Bookmarks bar</h3>"))
+                    {
+                        int dlOffset = 1;
+                        string folder = BookmarkFolders[i];
+                        bookmarksFolder.addHTML(folder, this, dlOffset);
+                        dlOffset -= Regex.Matches(folder, "</DL>").Count;
+                        while (dlOffset > 0)
+                        {
+                            i++;
+                            dlOffset++;
+                            folder = BookmarkFolders[i];
+                            bookmarksFolder.addHTML(folder, this, dlOffset);
+                            dlOffset -= Regex.Matches(folder, "</DL>").Count;
+                        }
+                    }
+                }
+            }
+        }
+
+
+        public static string getStringBetween(string s1, string s2, string mainString)
+        {
+            //https://stackoverflow.com/questions/17252615/get-string-between-two-strings-in-a-string
+            int pFrom = mainString.IndexOf(s1) + s1.Length;
+            int pTo = mainString.Substring(pFrom, mainString.Length - pFrom).IndexOf(s2);
+
+            String result = mainString.Substring(pFrom, pTo - pFrom);
+            return result;
+        }
+
+        public static List<string> getHTMLTagContent(string tag, string html)
+        {
+            List<string> sections = html.ToUpper().Split(new string[] { $"<{tag.ToUpper()}>" }, StringSplitOptions.None).ToList();
+            
+            return sections;
+        }
+        
+
+        internal void bookmark_OnClick(object sender, EventArgs e)
+        {
+            Bookmark bookmark = bookmarksFolder.bookmarks.Where(b => b.button == sender).FirstOrDefault();
+            generateNewTab(bookmark.url);
+
+        }
+
+
+        internal void bookmark_Close(object sender, EventArgs e)
+        {
+            Bookmark bookmark = bookmarksFolder.bookmarks.Where(b => b.closeButton == sender).FirstOrDefault();
+            bookmarksFolder.removeBookmark(bookmark);
+            bookmark.close();
+            updateBookmarks();
+
+        }
+
+        public Color getBackColor()
+        {
+            return owner.backColor;
+        }
+
+        public Color getForeColor()
+        {
+            return owner.foreColor;
+        }
+
+        public Color getAccentColor()
+        {
+            return owner.accentColor;
+        }
+
     }
+
 
 }

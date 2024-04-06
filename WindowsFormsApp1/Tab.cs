@@ -109,5 +109,6 @@ namespace SDDTabs
             SetButtonText(e.Title);
             updateTabs();
         }
+
     }
 }

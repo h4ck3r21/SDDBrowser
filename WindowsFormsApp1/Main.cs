@@ -15,6 +15,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using CefSharp;
 using CefSharp.WinForms;
+using Microsoft.VisualBasic;
 using SDDBrowser;
 using SDDPopup;
 using SDDTabs;
@@ -130,6 +131,25 @@ namespace SDDWebBrowser
             initialiseFormEdge();
             initialiseTriggers();
             lastContentSize = contentSpace.Bounds;
+
+            foreach (ContentPanel contentPanel in contentPanels)
+            {
+                addToolStripsForPanel(contentPanel);
+            }
+        }
+
+        private void addToolStripsForPanel(ContentPanel contentPanel)
+        {
+            ToolStripMenuItem importItem = new ToolStripMenuItem();
+            importItem.Text = contentPanel.position;
+            importItem.Name = contentPanel.position + "Button";
+            importItem.Click += delegate (object sent, EventArgs eventargs) { contentPanel.importBookmarks(); };
+            ImportButton.DropDownItems.Add(importItem);
+            ToolStripMenuItem exportItem = new ToolStripMenuItem();
+            exportItem.Text = contentPanel.position;
+            exportItem.Name = contentPanel.position + "Button";
+            exportItem.Click += delegate (object sent, EventArgs eventargs) { contentPanel.exportBookmarks(); };
+            ExportButton.DropDownItems.Add(exportItem);
         }
 
         protected override void CreateHandle()
@@ -573,7 +593,6 @@ namespace SDDWebBrowser
                 Location = new Point(MousePosition.X - Width/2, MousePosition.Y);
                 wasFullScreen = true;
             }
-            //I need a way either to trigger an event whenever the mouse moves or better yet send events between apps and a way to prevent apps from closing when the first app is closed.
         }
 
         private void DragControl(Control control, MouseEventArgs e, Rectangle rectangle)
@@ -702,6 +721,7 @@ namespace SDDWebBrowser
         {
             ContentPanel content = new ContentPanel(this, position);
             contentPanels.Add(content);
+            addToolStripsForPanel(content);
             Size table = getTablesize();
             Size gridSize = getGridSize();
             List<Rectangle> rectangles = getRectangles();
@@ -1365,6 +1385,7 @@ namespace SDDWebBrowser
             {
                 edge.BackColor = accentColor;
             }
+            mainMenuStrip.BackColor = Color.Transparent;
         }
 
         private Color convertColor(Windows.UI.Color color)
@@ -1617,6 +1638,37 @@ namespace SDDWebBrowser
         private void searchIcon_Click(object sender, EventArgs e)
         {
             Debug.Write(this);
+        }
+
+        private void Settings_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void BookmarkSettings_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void ImportButton_Click(object sender, EventArgs e)
+        {
+            string panelPosition = Interaction.InputBox("Which panel do you wish to import to?", "Import Bookmarks");
+            
+        }
+
+        private void ExportButton_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void BookmarkSettingsButton_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void moreSettingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }

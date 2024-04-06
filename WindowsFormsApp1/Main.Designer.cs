@@ -35,6 +35,7 @@ namespace SDDWebBrowser
             this.Tabs = new System.Windows.Forms.Panel();
             this.newTabBtn = new System.Windows.Forms.Button();
             this.contentHeader = new System.Windows.Forms.Panel();
+            this.addBookmarkButton = new System.Windows.Forms.Button();
             this.Bookmarks = new System.Windows.Forms.Panel();
             this.reloadButton = new System.Windows.Forms.Button();
             this.forwardButton = new System.Windows.Forms.Button();
@@ -46,8 +47,16 @@ namespace SDDWebBrowser
             this.minimiseButton = new System.Windows.Forms.Button();
             this.minimiseToolTip = new System.Windows.Forms.ToolTip(this.components);
             this.closeToolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.mainMenuStrip = new System.Windows.Forms.MenuStrip();
+            this.Settings = new System.Windows.Forms.ToolStripMenuItem();
+            this.BookmarkSettings = new System.Windows.Forms.ToolStripMenuItem();
+            this.moreSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.ImportButton = new System.Windows.Forms.ToolStripMenuItem();
+            this.ExportButton = new System.Windows.Forms.ToolStripMenuItem();
+            this.BookmarkSettingsButton = new System.Windows.Forms.ToolStripMenuItem();
             this.Tabs.SuspendLayout();
             this.contentHeader.SuspendLayout();
+            this.mainMenuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
             // Content
@@ -55,7 +64,7 @@ namespace SDDWebBrowser
             this.Content.BackColor = System.Drawing.Color.Transparent;
             this.Content.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.Content.Cursor = System.Windows.Forms.Cursors.Default;
-            this.Content.Location = new System.Drawing.Point(56, 225);
+            this.Content.Location = new System.Drawing.Point(56, 231);
             this.Content.Name = "Content";
             this.Content.Size = new System.Drawing.Size(1140, 695);
             this.Content.TabIndex = 0;
@@ -66,7 +75,7 @@ namespace SDDWebBrowser
             this.Tabs.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.Tabs.Controls.Add(this.newTabBtn);
             this.Tabs.Cursor = System.Windows.Forms.Cursors.Default;
-            this.Tabs.Location = new System.Drawing.Point(56, 155);
+            this.Tabs.Location = new System.Drawing.Point(56, 161);
             this.Tabs.Name = "Tabs";
             this.Tabs.Size = new System.Drawing.Size(1140, 70);
             this.Tabs.TabIndex = 0;
@@ -84,6 +93,7 @@ namespace SDDWebBrowser
             // 
             this.contentHeader.BackColor = System.Drawing.Color.Transparent;
             this.contentHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.contentHeader.Controls.Add(this.addBookmarkButton);
             this.contentHeader.Controls.Add(this.Bookmarks);
             this.contentHeader.Controls.Add(this.reloadButton);
             this.contentHeader.Controls.Add(this.forwardButton);
@@ -93,15 +103,28 @@ namespace SDDWebBrowser
             this.contentHeader.Cursor = System.Windows.Forms.Cursors.Default;
             this.contentHeader.Location = new System.Drawing.Point(56, 55);
             this.contentHeader.Name = "contentHeader";
-            this.contentHeader.Size = new System.Drawing.Size(1140, 100);
+            this.contentHeader.Size = new System.Drawing.Size(1140, 108);
             this.contentHeader.TabIndex = 0;
+            // 
+            // addBookmarkButton
+            // 
+            this.addBookmarkButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.addBookmarkButton.FlatAppearance.BorderSize = 0;
+            this.addBookmarkButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.addBookmarkButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.addBookmarkButton.Location = new System.Drawing.Point(1085, -1);
+            this.addBookmarkButton.Name = "addBookmarkButton";
+            this.addBookmarkButton.Size = new System.Drawing.Size(50, 49);
+            this.addBookmarkButton.TabIndex = 6;
+            this.addBookmarkButton.Text = "❤️";
+            this.addBookmarkButton.UseVisualStyleBackColor = true;
             // 
             // Bookmarks
             // 
-            this.Bookmarks.Location = new System.Drawing.Point(0, 57);
+            this.Bookmarks.Location = new System.Drawing.Point(0, 48);
             this.Bookmarks.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.Bookmarks.Name = "Bookmarks";
-            this.Bookmarks.Size = new System.Drawing.Size(1140, 42);
+            this.Bookmarks.Size = new System.Drawing.Size(1140, 59);
             this.Bookmarks.TabIndex = 5;
             // 
             // reloadButton
@@ -157,7 +180,7 @@ namespace SDDWebBrowser
             this.textURL.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.textURL.Location = new System.Drawing.Point(200, 0);
             this.textURL.Name = "textURL";
-            this.textURL.Size = new System.Drawing.Size(940, 32);
+            this.textURL.Size = new System.Drawing.Size(867, 32);
             this.textURL.TabIndex = 0;
             this.textURL.Text = "www.google.com";
             // 
@@ -203,6 +226,67 @@ namespace SDDWebBrowser
             this.minimiseButton.UseVisualStyleBackColor = false;
             this.minimiseButton.Click += new System.EventHandler(this.minimiseButton_Click);
             // 
+            // mainMenuStrip
+            // 
+            this.mainMenuStrip.BackColor = System.Drawing.Color.Transparent;
+            this.mainMenuStrip.GripMargin = new System.Windows.Forms.Padding(2, 2, 0, 2);
+            this.mainMenuStrip.ImageScalingSize = new System.Drawing.Size(24, 24);
+            this.mainMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.Settings,
+            this.BookmarkSettings});
+            this.mainMenuStrip.Location = new System.Drawing.Point(0, 0);
+            this.mainMenuStrip.Name = "mainMenuStrip";
+            this.mainMenuStrip.Size = new System.Drawing.Size(1260, 33);
+            this.mainMenuStrip.TabIndex = 4;
+            // 
+            // Settings
+            // 
+            this.Settings.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.moreSettingsToolStripMenuItem});
+            this.Settings.Name = "Settings";
+            this.Settings.Size = new System.Drawing.Size(92, 29);
+            this.Settings.Text = "Settings";
+            this.Settings.Click += new System.EventHandler(this.Settings_Click);
+            // 
+            // BookmarkSettings
+            // 
+            this.BookmarkSettings.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ImportButton,
+            this.ExportButton,
+            this.BookmarkSettingsButton});
+            this.BookmarkSettings.Name = "BookmarkSettings";
+            this.BookmarkSettings.Size = new System.Drawing.Size(117, 29);
+            this.BookmarkSettings.Text = "Bookmarks";
+            this.BookmarkSettings.Click += new System.EventHandler(this.BookmarkSettings_Click);
+            // 
+            // moreSettingsToolStripMenuItem
+            // 
+            this.moreSettingsToolStripMenuItem.Name = "moreSettingsToolStripMenuItem";
+            this.moreSettingsToolStripMenuItem.Size = new System.Drawing.Size(270, 34);
+            this.moreSettingsToolStripMenuItem.Text = "More Settings";
+            this.moreSettingsToolStripMenuItem.Click += new System.EventHandler(this.moreSettingsToolStripMenuItem_Click);
+            // 
+            // ImportButton
+            // 
+            this.ImportButton.Name = "ImportButton";
+            this.ImportButton.Size = new System.Drawing.Size(270, 34);
+            this.ImportButton.Text = "Import Bookmarks";
+            this.ImportButton.Click += new System.EventHandler(this.ImportButton_Click);
+            // 
+            // ExportButton
+            // 
+            this.ExportButton.Name = "ExportButton";
+            this.ExportButton.Size = new System.Drawing.Size(270, 34);
+            this.ExportButton.Text = "Export Bookmarks";
+            this.ExportButton.Click += new System.EventHandler(this.ExportButton_Click);
+            // 
+            // BookmarkSettingsButton
+            // 
+            this.BookmarkSettingsButton.Name = "BookmarkSettingsButton";
+            this.BookmarkSettingsButton.Size = new System.Drawing.Size(270, 34);
+            this.BookmarkSettingsButton.Text = "More Settings";
+            this.BookmarkSettingsButton.Click += new System.EventHandler(this.BookmarkSettingsButton_Click);
+            // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
@@ -216,6 +300,7 @@ namespace SDDWebBrowser
             this.Controls.Add(this.minimiseButton);
             this.Controls.Add(this.maximiseButton);
             this.Controls.Add(this.closeButton);
+            this.Controls.Add(this.mainMenuStrip);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.MinimumSize = new System.Drawing.Size(1260, 985);
             this.Name = "Main";
@@ -224,7 +309,10 @@ namespace SDDWebBrowser
             this.Tabs.ResumeLayout(false);
             this.contentHeader.ResumeLayout(false);
             this.contentHeader.PerformLayout();
+            this.mainMenuStrip.ResumeLayout(false);
+            this.mainMenuStrip.PerformLayout();
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -245,6 +333,14 @@ namespace SDDWebBrowser
         private Panel Bookmarks;
         private Panel Tabs;
         private Button newTabBtn;
+        private Button addBookmarkButton;
+        private MenuStrip mainMenuStrip;
+        private ToolStripMenuItem Settings;
+        private ToolStripMenuItem moreSettingsToolStripMenuItem;
+        private ToolStripMenuItem BookmarkSettings;
+        private ToolStripMenuItem ImportButton;
+        private ToolStripMenuItem ExportButton;
+        private ToolStripMenuItem BookmarkSettingsButton;
     }
 }
 
