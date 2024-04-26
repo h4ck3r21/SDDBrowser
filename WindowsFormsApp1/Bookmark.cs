@@ -1,11 +1,6 @@
-﻿using CefSharp.DevTools.Page;
-using System;
-using System.Collections.Generic;
+﻿using SDDWebBrowser;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SDDBrowser
@@ -41,10 +36,10 @@ namespace SDDBrowser
             {
                 SizeF size = graphics.MeasureString(button.Text, button.Font);
                 Debug.WriteLine("text: {0}, font: {1}", button.Text, button.Font);
-                button.Size = new Size((int)size.Width + 40, 40);            
+                button.Size = new Size((int)size.Width + 40, 40);
             }
             button.Controls.Add(closeButton);
-            button.BackColor = cp.getBackColor();
+            button.BackColor = cp.GetBackColor();
             button.TextAlign = ContentAlignment.MiddleLeft;
             closeButton.Size = new Size(20, 20);
             closeButton.TextAlign = ContentAlignment.MiddleCenter;
@@ -52,8 +47,9 @@ namespace SDDBrowser
             closeButton.FlatAppearance.BorderSize = 0;
             closeButton.Location = new Point(button.Width - 30, 10);
             closeButton.Paint += CloseButton_Paint;
-            closeButton.Click += cp.bookmark_Close;
-            button.Click += cp.bookmark_OnClick;
+            closeButton.Click += cp.Bookmark_Close;
+            button.Click += cp.Bookmark_OnClick;
+            Main.AddHoverColorToButton(button);
 
             setJSON();
         }
@@ -74,15 +70,15 @@ namespace SDDBrowser
         internal Bookmark(BookmarkJson json, ContentPanel cp)
         {
             contentHolder = cp;
-            url = json.url;
-            title = json.name;
+            url = json.Url;
+            title = json.Name;
             generate(url, title, cp);
         }
 
         internal Bookmark(string HTML, ContentPanel cp)
         {
-            url = ContentPanel.getStringBetween("href=\"", "\"", HTML);
-            title = ContentPanel.getStringBetween(">", "</a>", HTML);
+            url = ContentPanel.GetStringBetween("href=\"", "\"", HTML);
+            title = ContentPanel.GetStringBetween(">", "</a>", HTML);
             contentHolder = cp;
             generate(url, title, cp);
         }
@@ -91,8 +87,8 @@ namespace SDDBrowser
         {
             JSONRepresentation = new BookmarkJson
             {
-                name = title,
-                url = url,
+                Name = title,
+                Url = url,
             };
         }
 

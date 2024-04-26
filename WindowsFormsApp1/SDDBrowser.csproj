@@ -85,7 +85,11 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RoundedButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Tab.cs" />
+    <Compile Include="Testing.cs" />
     <Compile Include="Trigger.cs" />
     <EmbeddedResource Include="AppPopup.resx">
       <DependentUpon>AppPopup.cs</DependentUpon>
@@ -332,6 +336,9 @@
   <ItemGroup>
     <Content Include="Bookmarks.html" />
     <Content Include="bookmarks.js" />
+    <None Include="logo.png" />
+    <Content Include="templates\error.css" />
+    <Content Include="templates\error.html" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

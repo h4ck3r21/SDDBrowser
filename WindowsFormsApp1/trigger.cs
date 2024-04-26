@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
 namespace SDDBrowser
@@ -25,21 +20,25 @@ namespace SDDBrowser
             this.form = form;
         }
 
-        public Point getPointOnScreen()
+        public Point GetPointOnScreen()
         {
-            Point point = new Point();
-            point.X = rectangle.Left + form.Left;
-            point.Y = rectangle.Top + form.Top;
+            Point point = new Point
+            {
+                X = rectangle.Left + form.Left,
+                Y = rectangle.Top + form.Top
+            };
             return point;
         }
 
-        public Rectangle getRectangleOnScreen()
+        public Rectangle GetRectangleOnScreen()
         {
-            Rectangle r = new Rectangle();
-            r.X = rectangle.Left + form.Left;
-            r.Y = rectangle.Top + form.Top;
-            r.Width = rectangle.Width;
-            r.Height = rectangle.Height;
+            Rectangle r = new Rectangle
+            {
+                X = rectangle.Left + form.Left,
+                Y = rectangle.Top + form.Top,
+                Width = rectangle.Width,
+                Height = rectangle.Height
+            };
             return r;
         }
     }

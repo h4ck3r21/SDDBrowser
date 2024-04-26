@@ -1,24 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace SDDBrowser
 {
-    public class BookmarkFolderJson 
+    public class BookmarkFolderJson
     {
-        public List<BookmarkFolderJson> folders { get; set; }
-        public List<BookmarkJson> bookmarks { get; set; }
-        public string name { get; set; }
-        public int position { get; set; }
+        public List<BookmarkFolderJson> Folders { get; set; }
+        public List<BookmarkJson> Bookmarks { get; set; }
+        public string Name { get; set; }
+        public int Position { get; set; }
     }
 
     public class BookmarkJson
     {
-        public string name { get; set; }
-        public string url { get; set; }
-        public int position { get; set; }
+        public string Name { get; set; }
+        public string Url { get; set; }
+        public int Position { get; set; }
     }
 
 

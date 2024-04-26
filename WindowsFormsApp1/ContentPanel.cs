@@ -1,46 +1,44 @@
 ﻿using CefSharp;
-using CefSharp.DevTools.Audits;
-using CefSharp.Web;
 using CefSharp.WinForms;
 using SDDTabs;
 using SDDWebBrowser;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.DirectoryServices.ActiveDirectory;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using Windows.ApplicationModel.Background;
-using static System.Collections.Specialized.BitVector32;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace SDDBrowser
 {
     internal class ContentPanel
     {
+        /*
+        This class is responsible for containing all the elements, data and methods 
+        that are required for each content panel, that is the container of each window
+        within the split screen.
+         */
         ChromiumWebBrowser currentPage;
         public static string defaultURL = "www.google.com";
+        public const int TabGap = 5;
         Tab currentTab;
         Panel Content;
-        public Panel Tabs;
+        public Panel TabsPanel;
         TextBox textURL;
         Button searchIcon;
         Button reloadButton;
         Button forwardButton;
         Button backButton;
         Button addBookmarksButton;
+        Button closeButton;
         Panel contentHeader;
         Panel Bookmarks;
         public List<Tab> tabs = new List<Tab>();
-        Main owner;
+        readonly Main owner;
         public string position;
         Button newTabBtn;
         string lastSite;
@@ -50,7 +48,7 @@ namespace SDDBrowser
         public Rectangle Bounds;
         public Rectangle LastBounds;
         BookmarkFolder bookmarksFolder;
-        string bookmarkFileName;
+        readonly string bookmarkFileName;
         int tabStartx = 0;
         int bookmarkStartx = 0;
 
@@ -65,148 +63,137 @@ namespace SDDBrowser
             forwardButton = (Button)contentHeader.Controls.Find("forwardButton", true)[0];
             backButton = (Button)contentHeader.Controls.Find("backButton", true)[0];
             addBookmarksButton = (Button)contentHeader.Controls.Find("addBookmarkButton", true)[0];
-            Tabs = (Panel)form.Controls.Find("Tabs", true)[0];
-            Content = (Panel)form.Controls.Find("Content", true)[0];
-            Bookmarks = (Panel)form.Controls.Find("Bookmarks", true)[0];
-            newTabBtn = owner.getNewTabButton();
+            TabsPanel = (Panel)form.Controls.Find("TabsPanel", true)[0];
+            Content = (Panel)form.Controls.Find("ContentPanel", true)[0];
+            Bookmarks = (Panel)form.Controls.Find("BookmarksPanel", true)[0];
+            newTabBtn = owner.GetNewTabButton();
 
-            addEvents();
+            AddEvents();
 
-            Bounds = new Rectangle(contentHeader.Left, contentHeader.Top, contentHeader.Width, contentHeader.Height + Tabs.Height + Content.Height);
+            Bounds = new Rectangle(contentHeader.Left, contentHeader.Top, contentHeader.Width, contentHeader.Height + TabsPanel.Height + Content.Height);
             LastBounds = Bounds;
-            updateNavButtons();
+            UpdateNavButtons();
             bookmarkFileName = $"Bookmarks_{position}";
         }
 
-        private void addEvents()
+        private void AddEvents()
         {
-            reloadButton.Click += new EventHandler(reloadButton_Click);
-            forwardButton.Click += new EventHandler(this.forwardButton_Click);
-            backButton.Click += new EventHandler(this.backButton_Click);
-            textURL.TextChanged += new EventHandler(this.textURL_TextChanged);
-            textURL.KeyDown += new KeyEventHandler(this.textURL_KeyDown);
-            addBookmarksButton.Click += new EventHandler(this.addBookmarksButton_Click);
-            forwardButton.Paint += new PaintEventHandler(this.forwardButton_Paint);
-            backButton.Paint += new PaintEventHandler(this.backButton_Paint);
+            reloadButton.Click += new EventHandler(ReloadButton_Click);
+            forwardButton.Click += new EventHandler(this.ForwardButton_Click);
+            backButton.Click += new EventHandler(this.BackButton_Click);
+            textURL.TextChanged += new EventHandler(this.TextURL_TextChanged);
+            textURL.KeyDown += new KeyEventHandler(this.TextURL_KeyDown);
+            addBookmarksButton.Click += new EventHandler(this.AddBookmarksButton_Click);
+            forwardButton.Paint += new PaintEventHandler(this.ForwardButton_Paint);
+            backButton.Paint += new PaintEventHandler(this.BackButton_Paint);
             owner.Load += Owner_Load;
-            Tabs.MouseWheel += Tabs_MouseWheel;
+            TabsPanel.MouseWheel += Tabs_MouseWheel;
             Bookmarks.MouseWheel += Bookmarks_MouseWheel;
         }
 
-        private void removeEvents()
+        private void RemoveEvents()
         {
-            reloadButton.Click -= reloadButton_Click;
-            forwardButton.Click -= forwardButton_Click;
-            backButton.Click -= backButton_Click;
-            textURL.TextChanged -= textURL_TextChanged;
-            textURL.KeyDown -= textURL_KeyDown;
-            addBookmarksButton.Click -= addBookmarksButton_Click;
-            forwardButton.Paint -= forwardButton_Paint;
-            backButton.Paint -= backButton_Paint;
+            reloadButton.Click -= ReloadButton_Click;
+            forwardButton.Click -= ForwardButton_Click;
+            backButton.Click -= BackButton_Click;
+            textURL.TextChanged -= TextURL_TextChanged;
+            textURL.KeyDown -= TextURL_KeyDown;
+            addBookmarksButton.Click -= AddBookmarksButton_Click;
+            forwardButton.Paint -= ForwardButton_Paint;
+            backButton.Paint -= BackButton_Paint;
             owner.Load -= Owner_Load;
-            Tabs.MouseWheel -= Tabs_MouseWheel;
+            TabsPanel.MouseWheel -= Tabs_MouseWheel;
             Bookmarks.MouseWheel -= Bookmarks_MouseWheel;
         }
 
         private void Tabs_MouseWheel(object sender, MouseEventArgs e)
         {
-            
+
             int totalLength = tabs.Sum(t => t.GetButton().Width) + newTabBtn.Width;
             int newStart = tabStartx + e.Delta;
-            if (newStart <= 0 && (tabStartx + totalLength > Tabs.Width || e.Delta > 0))
+            if (newStart <= 0 && (tabStartx + totalLength > TabsPanel.Width || e.Delta > 0))
             {
                 tabStartx = newStart;
             }
-            updateTabs();
+            UpdateTabs();
         }
 
         private void Bookmarks_MouseWheel(object sender, MouseEventArgs e)
         {
 
-            int totalLength = bookmarksFolder.bookmarks.Sum(b => b.button.Width);
+            int totalLength = bookmarksFolder.Bookmarks.Sum(b => b.button.Width);
             int newStart = bookmarkStartx + e.Delta;
             if (newStart <= 0 && (bookmarkStartx + totalLength > Bookmarks.Width || e.Delta > 0))
             {
                 bookmarkStartx = newStart;
             }
-            updateBookmarks();
+            UpdateBookmarks();
         }
 
-        private void Tabs_MouseHover(object sender, EventArgs e)
-        {
-            if (Control.MouseButtons == MouseButtons.Middle)
-            {
-                throw new NotImplementedException();
-            }
-            Debug.WriteLineIf(Control.MouseButtons != MouseButtons.None, Control.MouseButtons);
-        }
 
-        private void Tabs_Scroll(object sender, ScrollEventArgs e)
-        {
-            Debug.WriteLine(Tabs.HorizontalScroll.Value);
-        }
-
-        
 
         private void Owner_Load(object sender, EventArgs e)
         {
-            if (File.Exists(bookmarkFileName))
+            try
             {
-                uploadBookmarks();
-            }
-            else
+                UploadBookmarks();
+            } 
+            catch
             {
                 bookmarksFolder = new BookmarkFolder(position);
-                downloadBookmarks();
+                DownloadBookmarks();
             }
         }
 
-        public void generateAllPanels(Rectangle area)
+        public void GenerateAllPanels(Rectangle area)
         {
-            removeEvents();
+            RemoveEvents();
 
-            generateNewTabBtn();
-            generateNewBackButton();
-            generateNewForwardButton();
-            generateNewReloadButton();
-            generateNewSearchIcon();
-            generateNewAddBookmarksButton();
-            generateNewBookmarks();
-            generateNewTextURL();
-            generateNewTabsPanel(area);
+            GenerateNewTabBtn();
+            GenerateNewBackButton();
+            GenerateNewForwardButton();
+            GenerateNewReloadButton();
+            GenerateNewSearchIcon();
+            GenerateNewAddBookmarksButton();
+            GenerateNewCloseButton();
+            GenerateNewBookmarks();
+            GenerateNewTextURL();
+            GenerateNewTabsPanel(area);
             tabs = new List<Tab>();
-            generateNewContentHeader(area);
-            generateNewContentPanel(area);
+            GenerateNewContentHeader(area);
+            GenerateNewContentPanel(area);
 
-            if (File.Exists(bookmarkFileName))
+
+            try
             {
-                uploadBookmarks();
+                UploadBookmarks();
             }
-            else
+            catch
             {
                 bookmarksFolder = new BookmarkFolder(position);
-                downloadBookmarks();
+                DownloadBookmarks();
             }
 
-            addEvents();
-            updateTabs();
+            AddEvents();
+            UpdateTabs();
             Bounds = area;
         }
 
-        public void setSizeAndPosition(Rectangle area)
+        public void SetSizeAndPosition(Rectangle area)
         {
-            Tabs.Height = Tabs.Height;
-            Tabs.Width = area.Width;
-            Tabs.Location = new Point(area.X, area.Y + contentHeader.Height);
+            TabsPanel.Height = TabsPanel.Height;
+            TabsPanel.Width = area.Width;
+            TabsPanel.Location = new Point(area.X, area.Y + contentHeader.Height);
             Content.Width = area.Width;
-            Content.Height = area.Height - Tabs.Height - contentHeader.Height;
-            Content.Location = new Point(area.X, area.Y + Tabs.Height + contentHeader.Height);
+            Content.Height = area.Height - TabsPanel.Height - contentHeader.Height;
+            Content.Location = new Point(area.X, area.Y + TabsPanel.Height + contentHeader.Height);
             contentHeader.Width = area.Width;
             contentHeader.Height = contentHeader.Height;
             contentHeader.Location = new Point(area.X, area.Y);
+            textURL.Width = area.Width - 6 * searchIcon.Width;
             Bounds = area;
-            updateTabs();
-            updateNavButtons();
+            UpdateTabs();
+            UpdateNavButtons();
         }
 
         public void ResizeControls(Size size)
@@ -215,38 +202,55 @@ namespace SDDBrowser
             owner.ResizeHeightControl(Content, size);
             owner.ResizeWidthControl(contentHeader, size);
             owner.ResizeWidthControl(textURL, size);
-            owner.ResizeWidthControl(Tabs, size);
+            owner.ResizeWidthControl(TabsPanel, size);
         }
 
-        public void generateNewTabsPanel(Rectangle area)
+        public void GenerateNewTabsPanel(Rectangle area)
         {
-            Tabs = new Panel
+            TabsPanel = new Panel
             {
-                Height = Tabs.Height,
+                Height = TabsPanel.Height,
                 Width = area.Width,
                 Location = new Point(area.X, area.Y),
                 Name = position,
                 BorderStyle = BorderStyle.FixedSingle,
             };
-            Tabs.HorizontalScroll.Enabled = true;
-            Tabs.BringToFront();
-            owner.addControl(Tabs);
+            TabsPanel.HorizontalScroll.Enabled = true;
+            TabsPanel.BringToFront();
+            owner.AddControl(TabsPanel);
         }
 
-        public void generateNewContentPanel(Rectangle area)
+        public void GenerateNewContentPanel(Rectangle area)
         {
             Content = new Panel
             {
                 Width = area.Width,
-                Height = area.Height - Tabs.Height,
-                Location = new Point(area.X, area.Y + Tabs.Height),
+                Height = area.Height - TabsPanel.Height,
+                Location = new Point(area.X, area.Y + TabsPanel.Height),
                 BorderStyle = BorderStyle.FixedSingle,
             };
             Content.BringToFront();
-            owner.addControl(Content);
+            owner.AddControl(Content);
         }
 
-        public void generateNewContentHeader(Rectangle area)
+        public void GenerateNewCloseButton()
+        {
+            closeButton = new Button
+            {
+                Anchor = AnchorStyles.Right,
+                Size = addBookmarksButton.Size,
+                Location = new Point(Bounds.Width - 2 * addBookmarksButton.Width, 0),
+                Text = "x",
+                BackColor = owner.backColor,
+                FlatStyle = FlatStyle.Flat,
+
+            };
+            closeButton.Click += delegate (object s, EventArgs e) { Close(); };
+            closeButton.FlatAppearance.BorderSize = 0;
+            Main.AddHoverColorToButton(closeButton);
+        }
+
+        public void GenerateNewContentHeader(Rectangle area)
         {
             contentHeader = new Panel
             {
@@ -274,15 +278,16 @@ namespace SDDBrowser
             startx += searchIcon.Width;
             contentHeader.Controls.Add(textURL);
             textURL.Location = new Point(startx, y);
-            startx += textURL.Width;
             contentHeader.Controls.Add(Bookmarks);
             contentHeader.Controls.Add(addBookmarksButton);
+            contentHeader.Controls.Add(closeButton);
             addBookmarksButton.BringToFront();
+            closeButton.BringToFront();
             contentHeader.BringToFront();
-            owner.addControl(contentHeader);
+            owner.AddControl(contentHeader);
         }
 
-        public void generateNewTabBtn()
+        public void GenerateNewTabBtn()
         {
             newTabBtn = new Button()
             {
@@ -294,10 +299,11 @@ namespace SDDBrowser
                 UseVisualStyleBackColor = true,
                 BackColor = newTabBtn.BackColor
             };
-            newTabBtn.Click += new EventHandler(newTabBtn_Click);
+            newTabBtn.Click += new EventHandler(NewTabBtn_Click);
+            Main.AddHoverColorToButton(newTabBtn);
         }
 
-        public void generateNewTextURL()
+        public void GenerateNewTextURL()
         {
             textURL = new TextBox()
             {
@@ -313,11 +319,11 @@ namespace SDDBrowser
             };
         }
 
-        public void generateNewSearchIcon()
+        public void GenerateNewSearchIcon()
         {
-            searchIcon = new Button() 
+            searchIcon = new Button()
             {
-                
+
                 FlatStyle = FlatStyle.Flat,
                 Font = searchIcon.Font,
                 Location = searchIcon.Location,
@@ -326,12 +332,14 @@ namespace SDDBrowser
                 TabIndex = 1,
                 Text = "G",
                 UseVisualStyleBackColor = true,
+                BackColor = searchIcon.BackColor
             };
-            this.searchIcon.FlatAppearance.BorderSize = 0;
+            searchIcon.FlatAppearance.BorderSize = 0;
+            Main.AddHoverColorToButton(searchIcon);
 
         }
 
-        public void generateNewAddBookmarksButton()
+        public void GenerateNewAddBookmarksButton()
         {
             addBookmarksButton = new Button()
             {
@@ -345,14 +353,16 @@ namespace SDDBrowser
                 Text = "❤️",
                 UseVisualStyleBackColor = true,
                 Anchor = AnchorStyles.Right,
+                BackColor = addBookmarksButton.BackColor
             };
             this.addBookmarksButton.FlatAppearance.BorderSize = 0;
+            Main.AddHoverColorToButton(addBookmarksButton);
 
         }
 
-        public void generateNewReloadButton()
+        public void GenerateNewReloadButton()
         {
-            reloadButton = new Button() 
+            reloadButton = new Button()
             {
                 FlatStyle = System.Windows.Forms.FlatStyle.Flat,
                 Font = reloadButton.Font,
@@ -360,50 +370,52 @@ namespace SDDBrowser
                 Name = "reloadButton",
                 Size = reloadButton.Size,
                 TabIndex = 4,
-                Text = "O",
                 UseVisualStyleBackColor = true,
+                BackColor = reloadButton.BackColor
             };
-            this.reloadButton.FlatAppearance.BorderSize = 0;
-            
+            reloadButton.Paint += owner.ReloadButton_Paint;
+            reloadButton.FlatAppearance.BorderSize = 0;
+            Main.AddHoverColorToButton(reloadButton);
         }
 
-        public void generateNewForwardButton()
+        public void GenerateNewForwardButton()
         {
             forwardButton = new Button()
             {
 
-                FlatStyle = System.Windows.Forms.FlatStyle.Flat,
+                FlatStyle = FlatStyle.Flat,
                 Font = forwardButton.Font,
                 Location = new System.Drawing.Point(50, 0),
                 Name = "forwardButton",
                 Size = forwardButton.Size,
                 TabIndex = 3,
                 UseVisualStyleBackColor = true,
-
+                BackColor = forwardButton.BackColor
             };
             forwardButton.FlatAppearance.BorderSize = 0;
-            forwardButton.Paint += new PaintEventHandler(this.forwardButton_Paint);
-            
-
+            forwardButton.Paint += new PaintEventHandler(this.ForwardButton_Paint);
+            Main.AddHoverColorToButton(forwardButton);
         }
 
-        public void generateNewBackButton()
+        public void GenerateNewBackButton()
         {
-            backButton = new Button() 
+            backButton = new Button()
             {
-                FlatStyle = System.Windows.Forms.FlatStyle.Flat,
+                FlatStyle = FlatStyle.Flat,
                 Font = backButton.Font,
-                Location = new System.Drawing.Point(0, 0),
+                Location = new Point(0, 0),
                 Name = "backButton",
                 Size = backButton.Size,
                 TabIndex = 2,
                 UseVisualStyleBackColor = true,
+                BackColor = backButton.BackColor
             };
             this.backButton.FlatAppearance.BorderSize = 0;
-            this.backButton.Paint += new System.Windows.Forms.PaintEventHandler(this.backButton_Paint);
+            this.backButton.Paint += new PaintEventHandler(this.BackButton_Paint);
+            Main.AddHoverColorToButton(backButton);
         }
 
-        public void generateNewBookmarks()
+        public void GenerateNewBookmarks()
         {
             Bookmarks = new Panel()
             {
@@ -415,7 +427,7 @@ namespace SDDBrowser
             };
         }
 
-        public void generateNewTab(string Url)
+        public void GenerateNewTab(string Url)
         {
             currentPage = new ChromiumWebBrowser();
             currentPage.LoadUrl(Url);
@@ -423,88 +435,90 @@ namespace SDDBrowser
             Content.Controls.Add(currentPage);
             currentPage.BringToFront();
             currentPage.Dock = DockStyle.Fill;
-            currentPage.AddressChanged += new EventHandler<AddressChangedEventArgs>(browser_AddressChanged);
-            currentPage.FrameLoadEnd += new EventHandler<FrameLoadEndEventArgs>(browser_FrameLoadEnd);
-            currentPage.FrameLoadStart += new EventHandler<FrameLoadStartEventArgs>(browser_FrameLoadStart);
+            currentPage.AddressChanged += new EventHandler<AddressChangedEventArgs>(Browser_AddressChanged);
+            currentPage.FrameLoadEnd += new EventHandler<FrameLoadEndEventArgs>(Browser_FrameLoadEnd);
+            currentPage.FrameLoadStart += new EventHandler<FrameLoadStartEventArgs>(Browser_FrameLoadStart);
             currentPage.TitleChanged += delegate (object titleSender, TitleChangedEventArgs titleArgs)
             {
                 currentPage.Name = titleArgs.Title;
             };
 
-            currentTab = addTab(currentPage);
-            transferTabEventsTo(this, currentTab);
-            changeTabs(currentTab);
+            currentTab = AddTab(currentPage);
+            TransferTabEventsTo(this, currentTab);
+            ChangeTabs(currentTab);
 
         }
 
         public void SetTabs(List<Tab> newTabList, ContentPanel fromPanel)
         {
             tabs = newTabList;
-            updateTabs();
-            fromPanel.transferTabsEventsTo(this, tabs);
+            UpdateTabs();
+            fromPanel.TransferTabsEventsTo(this, tabs);
             Content.Controls.Clear();
             foreach (Tab tab in tabs)
             {
                 Content.Controls.Add(tab.GetBrowser());
             }
-            changeTabs(tabs[tabs.Count - 1]);
+            ChangeTabs(tabs[tabs.Count - 1]);
         }
 
         public void ExtendTabs(List<Tab> newTabList)
         {
             tabs.AddRange(newTabList);
-            
+
             foreach (Tab tab in newTabList)
             {
                 Content.Controls.Add(tab.GetBrowser());
             }
             if (tabs.Count > 0)
             {
-                changeTabs(tabs[tabs.Count - 1]);
+                ChangeTabs(tabs[tabs.Count - 1]);
             }
             Console.WriteLine("tab count:");
             Console.WriteLine(tabs.Count);
-            updateTabs();
+            UpdateTabs();
         }
 
         public void TabsButtonMouseUp(object sender, MouseEventArgs e)
         {
-            Tab tab = getTabsButton((Button)sender);
+            Tab tab = GetTabsButton((Button)sender);
             tab.isMouseDown = false;
             if (!tab.isDragging)
             {
-                changeTabs(tab);
+                ChangeTabs(tab);
             }
             tab.isDragging = false;
         }
 
         public void TabsButtonMouseDown(object sender, MouseEventArgs e)
         {
-            Tab tab = getTabsButton((Button)sender);
+            Tab tab = GetTabsButton((Button)sender);
             if (tab != null)
             {
                 tab.isMouseDown = true;
+                tab.whereMouseDown = Control.MousePosition;
             }
-            
+
         }
 
-        private void changeTabs(Tab tab)
+        private void ChangeTabs(Tab tab)
         {
             currentPage = tab.GetBrowser();
             currentTab = tab;
-            textURL.Text = tab.GetBrowser().Address;
+            SetTextURL(tab.GetBrowser().Address);
             tab.GetBrowser().BringToFront();
-            historyStack = tab.getHistory();
-            historyStackIndex = tab.getHistoryIndex();
-            updateNavButtons();
+            historyStack = tab.GetHistory();
+            historyStackIndex = tab.GetHistoryIndex();
+            UpdateNavButtons();
+            UpdateTabs();
         }
 
-        public void newTabBtn_Click(object sender, EventArgs e)
+        public void NewTabBtn_Click(object sender, EventArgs e)
         {
-            generateNewTab(defaultURL);
+            GenerateNewTab(defaultURL);
         }
 
-        public void closeTab(object sender, EventArgs e)
+        public void CloseTab(object sender, EventArgs e)
         {
             Button btn = (Button)sender;
             bool checkButton(Tab t)
@@ -512,9 +526,10 @@ namespace SDDBrowser
                 return (t.GetCloseButton() == btn);
             }
             Tab tab = tabs.Find(checkButton);
+            if (tab == null) { return; }
             tabs.Remove(tab);
             Content.Controls.Remove(tab.GetBrowser());
-            updateTabs();
+            UpdateTabs();
             if (currentTab == tab)
             {
                 foreach (Control browser in Content.Controls)
@@ -529,34 +544,35 @@ namespace SDDBrowser
                         Tab currentTab = tabs.Find(checkBrowser);
                         if (currentTab != null)
                         {
-                            changeTabs(currentTab);
+                            ChangeTabs(currentTab);
                         }
+                        UpdateTabs();
                     }
                 }
             }
         }
 
         delegate void VoidCallback();
-        private void removeBtnControl(Button button)
+        private void RemoveBtnControl(Button button)
         {
-            if (owner.isDead || Tabs.IsDisposed || button.IsDisposed) return;
-            if (Tabs.InvokeRequired || button.InvokeRequired)
+            if (owner.isDead || TabsPanel.IsDisposed || button.IsDisposed) return;
+            if (TabsPanel.InvokeRequired || button.InvokeRequired)
             {
-                var d = new SetButtonCallback(removeBtnControl);
-                Tabs.Invoke(d, new object[] { button });
+                var d = new SetButtonCallback(RemoveBtnControl);
+                TabsPanel.Invoke(d, new object[] { button });
             }
             else
             {
-                Tabs.Controls.Remove(button);
+                TabsPanel.Controls.Remove(button);
             }
         }
 
-        private void removeBookmarkControl(Button button)
+        private void RemoveBookmarkControl(Button button)
         {
             if (owner.isDead || Bookmarks.IsDisposed || button.IsDisposed) return;
             if (Bookmarks.InvokeRequired || button.InvokeRequired)
             {
-                var d = new SetButtonCallback(removeBtnControl);
+                var d = new SetButtonCallback(RemoveBtnControl);
                 Bookmarks.Invoke(d, new object[] { button });
             }
             else
@@ -565,7 +581,7 @@ namespace SDDBrowser
             }
         }
 
-        private void updateTabs()
+        public void UpdateTabs()
         {
             if (owner.isDead) return;
             //Debug.WriteLine("Tabs: {0}, Controls:{1}", tabs.Count, Tabs.Controls.Count);
@@ -573,61 +589,70 @@ namespace SDDBrowser
 
             int currentXPos = tabStartx;
             IEnumerable<Button> buttons = tabs.Select(tab => tab.GetButton());
-            Control[] controls = new Control[Tabs.Controls.Count];
-            Tabs.Controls.CopyTo(controls, 0);
+            Control[] controls = new Control[TabsPanel.Controls.Count];
+            TabsPanel.Controls.CopyTo(controls, 0);
             foreach (Control control in controls)
             {
                 if (control != newTabBtn && !buttons.Contains(control))
                 {
-                    removeBtnControl((Button)control);
+                    RemoveBtnControl((Button)control);
 
                 }
             }
 
             foreach (Tab tab in tabs)
             {
-                Button btn = tab.GetButton();
-                changeBtnLocation(btn, new Point(currentXPos, 0));
-                if (!Tabs.Controls.Contains(btn))
+                RoundedButton btn = tab.GetButton();
+                ChangeBtnLocation(btn, new Point(currentXPos, TabGap));
+                ChangeBtnHeight(btn, TabsPanel.Height - 2 * TabGap);
+                if (!TabsPanel.Controls.Contains(btn))
                 {
-                    addBtnControl(btn);
+                    AddBtnControl(btn);
                 }
-                currentXPos += btn.Width;
+                if (tab == currentTab)
+                {
+                    btn.SetBorderColor(GetAccentColor());
+                }
+                else
+                {
+                    btn.SetBorderColor(GetForeColor());
+                }
+                currentXPos += btn.Width + TabGap;
             }
 
             //Debug.WriteLine("Tabs: {0}, Controls:{1}", tabs.Count, Tabs.Controls.Count);
-            if (!Tabs.Controls.Contains(newTabBtn))
+            if (!TabsPanel.Controls.Contains(newTabBtn))
             {
-                addBtnControl(newTabBtn);
+                AddBtnControl(newTabBtn);
             }
-            setNewTabButtonLocation(new Point(currentXPos, newTabBtn.Location.Y));
+            SetNewTabButtonLocation(new Point(currentXPos, newTabBtn.Location.Y));
         }
 
 
-        private void updateBookmarks()
+        private void UpdateBookmarks()
         {
             if (owner.isDead) return;
 
             int currentXPos = 0;
-            IEnumerable<Button> buttons = bookmarksFolder.bookmarks.Select(tab => tab.button);
+            IEnumerable<Button> buttons = bookmarksFolder.Bookmarks.Select(tab => tab.button);
             Control[] controls = new Control[Bookmarks.Controls.Count];
             Bookmarks.Controls.CopyTo(controls, 0);
             foreach (Control control in controls)
             {
                 if (!buttons.Contains(control))
                 {
-                    removeBookmarkControl((Button)control);
+                    RemoveBookmarkControl((Button)control);
 
                 }
             }
 
-            foreach (Bookmark bookmark in bookmarksFolder.bookmarks)
+            foreach (Bookmark bookmark in bookmarksFolder.Bookmarks)
             {
                 Button btn = bookmark.button;
-                changeBtnLocation(btn, new Point(currentXPos, 0));
+                ChangeBtnLocation(btn, new Point(currentXPos, 0));
                 if (!Bookmarks.Controls.Contains(btn))
                 {
-                    addBookmarkControl(btn);
+                    AddBookmarkControl(btn);
                 }
                 currentXPos += btn.Width;
             }
@@ -636,11 +661,11 @@ namespace SDDBrowser
 
 
         delegate void SetButtonPointCallback(Button button, Point point);
-        private void changeBtnLocation(Button button, Point point)
+        private void ChangeBtnLocation(Button button, Point point)
         {
             if (button.InvokeRequired)
             {
-                var d = new SetButtonPointCallback(changeBtnLocation);
+                var d = new SetButtonPointCallback(ChangeBtnLocation);
                 button.Invoke(d, new object[] { button, point });
             }
             else
@@ -649,42 +674,56 @@ namespace SDDBrowser
             }
         }
 
-        delegate void SetButtonCallback(Button button);
-        private void addBtnControl(Button button)
+        delegate void SetButtonIntCallback(Button button, int integer);
+        private void ChangeBtnHeight(Button button, int height)
         {
-            if (owner.isDead || Tabs.IsDisposed || button.IsDisposed) return;
-            if (Tabs.InvokeRequired || button.InvokeRequired)
+            if (button.InvokeRequired)
             {
-                var d = new SetButtonCallback(addBtnControl);
+                var d = new SetButtonIntCallback(ChangeBtnHeight);
+                button.Invoke(d, new object[] { button, height });
+            }
+            else
+            {
+                button.Height = height;
+            }
+        }
+
+        delegate void SetButtonCallback(Button button);
+        private void AddBtnControl(Button button)
+        {
+            if (owner.isDead || TabsPanel.IsDisposed || button.IsDisposed) return;
+            if (TabsPanel.InvokeRequired || button.InvokeRequired)
+            {
+                var d = new SetButtonCallback(AddBtnControl);
                 if (owner.IsHandleCreated)
                 {
-                    Tabs.Invoke(d, new object[] { button });
+                    TabsPanel.Invoke(d, new object[] { button });
                 }
                 else
                 {
-                    Action invokeTabs = () => Tabs.Invoke(d, new object[] { button });
+                    void invokeTabs() => TabsPanel.Invoke(d, new object[] { button });
                     owner.needsHandle.Add(invokeTabs);
                 }
             }
             else
             {
-                Tabs.Controls.Add(button);
+                TabsPanel.Controls.Add(button);
             }
         }
 
-        private void addBookmarkControl(Button button)
+        private void AddBookmarkControl(Button button)
         {
             if (owner.isDead || Bookmarks.IsDisposed || button.IsDisposed) return;
             if (Bookmarks.InvokeRequired || button.InvokeRequired)
             {
-                var d = new SetButtonCallback(addBtnControl);
+                var d = new SetButtonCallback(AddBtnControl);
                 if (owner.IsHandleCreated)
                 {
                     Bookmarks.Invoke(d, new object[] { button });
                 }
                 else
                 {
-                    Action invokeTabs = () => Bookmarks.Invoke(d, new object[] { button });
+                    void invokeTabs() => Bookmarks.Invoke(d, new object[] { button });
                     owner.needsHandle.Add(invokeTabs);
                 }
             }
@@ -698,12 +737,12 @@ namespace SDDBrowser
 
 
         delegate void SetPointCallback(Point point);
-        private void setNewTabButtonLocation(Point point)
+        private void SetNewTabButtonLocation(Point point)
         {
             if (owner.isDead) { return; }
             if (newTabBtn.InvokeRequired)
             {
-                var d = new SetPointCallback(setNewTabButtonLocation);
+                var d = new SetPointCallback(SetNewTabButtonLocation);
                 newTabBtn.Invoke(d, new object[] { point });
             }
             else
@@ -713,60 +752,63 @@ namespace SDDBrowser
         }
 
         delegate void SetVoidCallback();
-        private void clearTabs()
+        private void ClearTabs()
         {
-            if (Tabs.InvokeRequired)
+            if (TabsPanel.InvokeRequired)
             {
-                var d = new SetVoidCallback(clearTabs);
-                Tabs.Invoke(d, new object[] { });
+                var d = new SetVoidCallback(ClearTabs);
+                TabsPanel.Invoke(d, new object[] { });
             }
             else
             {
-                Tabs.Controls.Clear();
+                TabsPanel.Controls.Clear();
             }
         }
 
-        private Tab addTab(ChromiumWebBrowser tab)
+        private Tab AddTab(ChromiumWebBrowser tab)
         {
-            Tab newTab = new Tab(tab, updateTabs);
+            Tab newTab = new Tab(tab, UpdateTabs);
 
-            Button btn = newTab.GetButton();
+            RoundedButton btn = newTab.GetButton();
 
-            btn.ForeColor = owner.foreColor;
-            btn.BackColor = owner.backColor;
+            btn.ForeColor = GetForeColor();
+            btn.BackColor = GetBackColor();
+            btn.SetBorderColor(GetAccentColor());
 
-            Tabs.Controls.Add(btn);
+            TabsPanel.Controls.Add(btn);
             tabs.Add(newTab);
-            updateTabs();
+            UpdateTabs();
             return newTab;
         }
 
-        public void transferTabsEventsTo(ContentPanel contentPanel, List<Tab> tabs)
-        { 
+        public void TransferTabsEventsTo(ContentPanel contentPanel, List<Tab> tabs)
+        {
             foreach (Tab tab in tabs)
             {
-                transferTabEventsTo(contentPanel, tab);
+                TransferTabEventsTo(contentPanel, tab);
             }
         }
 
-            public void transferTabEventsTo(ContentPanel contentPanel, Tab tab)
+        public void TransferTabEventsTo(ContentPanel contentPanel, Tab tab)
         {
             Button btn = tab.GetButton();
             RemoveEvent(btn, "EventMouseDown");
             RemoveEvent(btn, "EventMouseUp");
             RemoveEvent(btn, "EventMouseMove");
+            ChromiumWebBrowser browser = tab.GetBrowser();
 
 
             btn.MouseDown += new MouseEventHandler(contentPanel.TabsButtonMouseDown);
             btn.MouseUp += new MouseEventHandler(contentPanel.TabsButtonMouseUp);
             btn.MouseMove += new MouseEventHandler(contentPanel.owner.TabsButtonMouseMove);
+            browser.LoadError += new EventHandler<LoadErrorEventArgs>(OnBrowserLoadError);
 
             btn.ForeColor = owner.foreColor;
             btn.BackColor = owner.backColor;
 
             Button closeBtn = tab.GetCloseButton();
-            closeBtn.Click -= closeTab;
-            closeBtn.Click += new EventHandler(contentPanel.closeTab);
+            closeBtn.Click -= CloseTab;
+            closeBtn.Click += new EventHandler(contentPanel.CloseTab);
         }
 
         // Remove all event handlers from the control's named event.
@@ -784,7 +826,7 @@ namespace SDDBrowser
             event_handlers.RemoveHandler(obj, event_handlers[obj]);
         }
 
-        public Tab getTabsButton(Button btn)
+        public Tab GetTabsButton(Button btn)
         {
             bool checkTabButtons(Tab testTab)
             {
@@ -794,7 +836,7 @@ namespace SDDBrowser
             return tab;
         }
 
-        // Browser - to purge
+        // Browser
         private void OnBrowserLoadError(object sender, LoadErrorEventArgs e) // https://github.com/cefsharp/CefSharp.MinimalExample/blob/master/CefSharp.MinimalExample.WinForms/BrowserForm.cs#L32
         {
             //Actions that trigger a download will raise an aborted error.
@@ -804,21 +846,34 @@ namespace SDDBrowser
                 return;
             }
 
-            var errorHtml = string.Format("<html><body><h2>Failed to load URL {0} with error {1} ({2}).</h2></body></html>",
-                                              e.FailedUrl, e.ErrorText, e.ErrorCode);
-
-            _ = e.Browser.SetMainFrameDocumentContentAsync(errorHtml);
+            string error = Properties.Resources.error;
+            var errorHtml = string.Format(error, e.FailedUrl, e.ErrorText, e.ErrorCode, Properties.Resources.errorCss);
+            e.Browser.SetMainFrameDocumentContentAsync(errorHtml);
 
             //AddressChanged isn't called for failed Urls so we need to manually update the Url TextBox
-            textURL.Text = e.FailedUrl;
+            SetTextURL(e.FailedUrl);
         }
 
-        private void browser_AddressChanged(object sender, AddressChangedEventArgs e)
+        delegate void SetTextCallback(string text);
+        public void SetTextURL(string text)
+        {
+            if (textURL.InvokeRequired)
+            {
+                var d = new SetTextCallback(SetTextURL);
+                textURL.Invoke(d, new object[] { text });
+            }
+            else
+            {
+                textURL.Text = text;
+            }
+        }
+
+        private void Browser_AddressChanged(object sender, AddressChangedEventArgs e)
         {
             if (owner.isDead) { return; }
             if (sender == currentPage)
             {
-                owner.setTextURL(e.Address);
+                owner.SetTextURL(e.Address);
             }
             if (historyStack.Count == 0 || e.Address != lastSite)
             {
@@ -832,64 +887,80 @@ namespace SDDBrowser
                     {
                         historyStack.Add(e.Address);
                         historyStackIndex++;
-                        currentTab.setHistoryIndex(historyStackIndex);
+                        currentTab.SetHistoryIndex(historyStackIndex);
                     }
                 }
                 fromHistory = false;
-                updateNavButtons();
+                UpdateNavButtons();
 
             }
             lastSite = e.Address;
         }
 
-        private void browser_FrameLoadEnd(object sender, FrameLoadEndEventArgs e)
+        private void Browser_FrameLoadEnd(object sender, FrameLoadEndEventArgs e)
         {
 
         }
 
-        private void browser_FrameLoadStart(object sender, FrameLoadStartEventArgs e)
+        private void Browser_FrameLoadStart(object sender, FrameLoadStartEventArgs e)
         {
 
         }
 
         // navigation
 
-        public void updateNavButtons()
+        public void UpdateNavButtons()
         {
             if (owner.isDead) return;
-            setBackButtonEnabled(historyStackIndex > 1);
-            setForwardButtonEnabled(historyStackIndex < historyStack.Count);
+            const int dilution = 4;
+
+            SetBackButtonEnabled(historyStackIndex > 1);
+            SetForwardButtonEnabled(historyStackIndex < historyStack.Count);
             if (backButton.Enabled)
             {
-                setBackButtonForeColor(owner.foreColor);
+                SetBackButtonForeColor(GetForeColor());
             }
             else
             {
-                setBackButtonForeColor(Color.Gray);
+                Color bc = GetBackColor();
+                Color fc = GetForeColor();
+                Color color = Color.FromArgb(255,
+                    (bc.R * dilution + fc.R) / (1 + dilution),
+                    (bc.G * dilution + fc.G) / (1 + dilution),
+                    (bc.B * dilution + fc.B) / (1 + dilution)
+                    );
+                SetBackButtonForeColor(color);
             }
 
             if (forwardButton.Enabled)
             {
-                setForwardButtonForeColor(owner.foreColor);
+                SetForwardButtonForeColor(GetForeColor());
             }
             else
             {
-                setForwardButtonForeColor(Color.Gray);
+                Color bc = GetBackColor();
+                Color fc = GetForeColor();
+                Color color = Color.FromArgb(255,
+                    (bc.R * dilution + fc.R) / (1 + dilution),
+                    (bc.G * dilution + fc.G) / (1 + dilution),
+                    (bc.B * dilution + fc.B) / (1 + dilution)
+                    );
+                SetForwardButtonForeColor(color);
             }
         }
 
         delegate void SetBoolCallback(bool enabled);
-        private void setBackButtonEnabled(bool enabled)
+        private void SetBackButtonEnabled(bool enabled)
         {
             if (owner.isDead) return;
             if (backButton.InvokeRequired && !backButton.IsDisposed)
             {
-                var d = new SetBoolCallback(setBackButtonEnabled);
+                var d = new SetBoolCallback(SetBackButtonEnabled);
                 try
                 {
                     owner.Invoke(d, new object[] { enabled });
                 }
-                catch (ObjectDisposedException e)
+                catch (ObjectDisposedException)
                 {
 
                 }
@@ -900,12 +971,12 @@ namespace SDDBrowser
             }
         }
 
-        private void setForwardButtonEnabled(bool enabled)
+        private void SetForwardButtonEnabled(bool enabled)
         {
             if (owner.isDead) return;
             if (forwardButton.InvokeRequired)
             {
-                var d = new SetBoolCallback(setForwardButtonEnabled);
+                var d = new SetBoolCallback(SetForwardButtonEnabled);
                 forwardButton.Invoke(d, new object[] { enabled });
             }
             else
@@ -916,12 +987,12 @@ namespace SDDBrowser
 
         delegate void SetColorCallback(Color color);
 
-        private void setBackButtonForeColor(Color color)
+        private void SetBackButtonForeColor(Color color)
         {
             if (owner.isDead) return;
             if (backButton.InvokeRequired)
             {
-                var d = new SetColorCallback(setBackButtonForeColor);
+                var d = new SetColorCallback(SetBackButtonForeColor);
                 backButton.Invoke(d, new object[] { color });
             }
             else
@@ -931,12 +1002,12 @@ namespace SDDBrowser
             }
         }
 
-        private void setForwardButtonForeColor(Color color)
+        private void SetForwardButtonForeColor(Color color)
         {
             if (owner.isDead) return;
             if (forwardButton.InvokeRequired)
             {
-                var d = new SetColorCallback(setForwardButtonForeColor);
+                var d = new SetColorCallback(SetForwardButtonForeColor);
                 owner.Invoke(d, new object[] { color });
             }
             else
@@ -946,20 +1017,22 @@ namespace SDDBrowser
             }
         }
 
-        private void textURL_KeyDown(object sender, KeyEventArgs e)
+        private void TextURL_KeyDown(object sender, KeyEventArgs e)
         {
 
             if (e.KeyCode == Keys.Enter)
             {
-                enterText();
+                EnterText();
             }
         }
 
-        private void enterText()
+        private void EnterText()
         {
             if (CheckUrl(textURL.Text))
             {
                 Console.WriteLine("loading \"" + textURL.Text + "\"");
+                currentTab.SetButtonText("loading...");
+                UpdateTabs();
                 currentPage.LoadUrl(textURL.Text);
             }
             else
@@ -971,7 +1044,7 @@ namespace SDDBrowser
             }
         }
 
-        private void textURL_TextChanged(object sender, EventArgs e)
+        private void TextURL_TextChanged(object sender, EventArgs e)
         {
             if (CheckUrl(textURL.Text))
             {
@@ -986,56 +1059,59 @@ namespace SDDBrowser
         protected bool CheckUrl(string url)
         {
             string urlWithProtocol = "http://" + url;
-            bool result = Uri.IsWellFormedUriString(url.ToString(), UriKind.Absolute)
-                || (Uri.IsWellFormedUriString(urlWithProtocol, UriKind.Absolute)
-                && (url.EndsWith("/")
-                || (owner.domains.Any(x => url.Contains(x))
-                && char.IsLetterOrDigit(url[0]))
-                || Regex.IsMatch(url, @"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")))
-                || Directory.Exists(url);
+            string domainPattern = string.Join("|", owner.urlDomains.Select(x => x + "/"));
+            bool result =
+                Uri.IsWellFormedUriString(url.ToString(), UriKind.Absolute)
+                || (url.EndsWith("/") && Regex.IsMatch(url, @"[a-zA-Z.]"))
+                || (char.IsLetterOrDigit(url[0]) && Regex.IsMatch(url, domainPattern))
+                || owner.urlDomains.Any(x => url.EndsWith(x))
+                || Regex.IsMatch(url, @"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
+                || Directory.Exists(url)
+                || url.StartsWith("http://")
+                || url.StartsWith("https://");
             return result;
         }
 
         //buttons
-        private void backButton_Click(object sender, EventArgs e)
+        private void BackButton_Click(object sender, EventArgs e)
         {
             if (historyStackIndex > 1)
             {
                 historyStackIndex--;
-                currentTab.setHistoryIndex(historyStackIndex);
+                currentTab.SetHistoryIndex(historyStackIndex);
                 fromHistory = true;
                 currentPage.LoadUrl(historyStack[historyStackIndex - 1]);
             }
         }
 
-        private void backButton_Hover(object sender, EventArgs e)
+        private void BackButton_Hover(object sender, EventArgs e)
         {
             ((Button)sender).BackColor = Color.Gray;
         }
 
-        private void backButton_Leave(object sender, EventArgs e)
+        private void BackButton_Leave(object sender, EventArgs e)
         {
             ((Button)sender).BackColor = owner.backColor;
         }
 
 
-        private void forwardButton_Click(object sender, EventArgs e)
+        private void ForwardButton_Click(object sender, EventArgs e)
         {
             if (historyStackIndex < historyStack.Count())
             {
                 historyStackIndex++;
-                currentTab.setHistoryIndex(historyStackIndex);
+                currentTab.SetHistoryIndex(historyStackIndex);
                 fromHistory = true;
                 currentPage.LoadUrl(historyStack[historyStackIndex - 1]);
             }
         }
 
-        private void reloadButton_Click(object sender, EventArgs e)
+        private void ReloadButton_Click(object sender, EventArgs e)
         {
             currentPage.Reload();
         }
 
-        private void forwardButton_Paint(object sender, PaintEventArgs e)
+        private void ForwardButton_Paint(object sender, PaintEventArgs e)
         {
             //https://stackoverflow.com/questions/72644619/how-to-change-the-forecolor-of-a-disabled-button
             Button btn = (Button)sender;
@@ -1051,7 +1127,7 @@ namespace SDDBrowser
             stringFormat.Dispose();
         }
 
-        private void backButton_Paint(object sender, PaintEventArgs e)
+        private void BackButton_Paint(object sender, PaintEventArgs e)
         {
             //https://stackoverflow.com/questions/72644619/how-to-change-the-forecolor-of-a-disabled-button
             Button btn = (Button)sender;
@@ -1067,52 +1143,54 @@ namespace SDDBrowser
             stringFormat.Dispose();
         }
 
-        private void addBookmarksButton_Click(object sender, EventArgs e)
+        //bookmarks
+
+        private void AddBookmarksButton_Click(object sender, EventArgs e)
         {
             string title = currentTab.GetButton().Text;
             string url = currentPage.Address;
-            if (!bookmarksFolder.bookmarks.Select(b => b.url).Contains(url))
+            if (!bookmarksFolder.Bookmarks.Select(b => b.url).Contains(url))
             {
-                addBookmark(url, title);
-                downloadBookmarks();
+                AddBookmark(url, title);
+                DownloadBookmarks();
 
             }
             else
             {
 
             }
-            
+
         }
 
-        public void addBookmark(string url, string title)
+        public void AddBookmark(string url, string title)
         {
             Bookmark bookmark = new Bookmark(url, title, this);
-            bookmarksFolder.bookmarks.Add(bookmark);
-            updateBookmarks();
+            bookmarksFolder.Bookmarks.Add(bookmark);
+            UpdateBookmarks();
             addBookmarksButton.BringToFront();
         }
 
-        public void removeBookmark(string url)
+        public void RemoveBookmark(string url)
         {
             Bookmark bookmark = bookmarksFolder.Find(b => b.url == url)[0];
             bookmarksFolder.removeBookmark(bookmark);
         }
 
-        public void downloadBookmarks()
+        public void DownloadBookmarks()
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
             string jsonString = JsonSerializer.Serialize(bookmarksFolder.getJSON(), options);
             File.WriteAllText(bookmarkFileName, jsonString);
         }
 
-        public void uploadBookmarks()
+        public void UploadBookmarks()
         {
             BookmarkFolderJson json = JsonSerializer.Deserialize<BookmarkFolderJson>(File.ReadAllText(bookmarkFileName));
             bookmarksFolder = new BookmarkFolder(json, this);
-            updateBookmarks();
+            UpdateBookmarks();
         }
 
-        public void exportBookmarks()
+        public void ExportBookmarks()
         {
             string html = $@"<html>
                             <head>
@@ -1140,33 +1218,37 @@ namespace SDDBrowser
                                 </p>
                             </body>
                             </html>";
-            SaveFileDialog fileDialog = new SaveFileDialog();
-            fileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            fileDialog.RestoreDirectory = true;
-            fileDialog.Title = "Save As";
-            fileDialog.DefaultExt = "html";
-            fileDialog.Filter = "HTML Document (*.html)|*.html";
-            fileDialog.CheckFileExists = true;
-            fileDialog.CheckPathExists = true;
+            SaveFileDialog fileDialog = new SaveFileDialog
+            {
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                RestoreDirectory = true,
+                Title = "Save As",
+                DefaultExt = "html",
+                Filter = "HTML Document (*.html)|*.html",
+                CheckFileExists = true,
+                CheckPathExists = true
+            };
             if (fileDialog.ShowDialog() == DialogResult.OK)
             {
                 File.WriteAllText(fileDialog.FileName, html);
             }
-            
+
         }
 
-        public void importBookmarks()
+        public void ImportBookmarks()
         {
-            OpenFileDialog fileDialog = new OpenFileDialog();
-            fileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            fileDialog.RestoreDirectory = true;
-            fileDialog.Title = "Open";
-            fileDialog.DefaultExt = "html";
-            fileDialog.Filter = "HTML Document (*.html)|*.html";
+            OpenFileDialog fileDialog = new OpenFileDialog
+            {
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                RestoreDirectory = true,
+                Title = "Open",
+                DefaultExt = "html",
+                Filter = "HTML Document (*.html)|*.html"
+            };
             if (fileDialog.ShowDialog() == DialogResult.OK)
             {
                 string html = File.ReadAllText(fileDialog.FileName);
-                List<string> BookmarkFolders = getHTMLTagContent("dl", html);
+                List<string> BookmarkFolders = GetHTMLTagContent("dl", html);
                 BookmarkFolders.RemoveAt(0);
                 for (int i = 0; i < BookmarkFolders.Count; i++)
                 {
@@ -1191,7 +1273,7 @@ namespace SDDBrowser
         }
 
 
-        public static string getStringBetween(string s1, string s2, string mainString)
+        public static string GetStringBetween(string s1, string s2, string mainString)
         {
             //https://stackoverflow.com/questions/17252615/get-string-between-two-strings-in-a-string
             int pFrom = mainString.IndexOf(s1) + s1.Length;
@@ -1201,44 +1283,61 @@ namespace SDDBrowser
             return result;
         }
 
-        public static List<string> getHTMLTagContent(string tag, string html)
+        public static List<string> GetHTMLTagContent(string tag, string html)
         {
             List<string> sections = html.ToUpper().Split(new string[] { $"<{tag.ToUpper()}>" }, StringSplitOptions.None).ToList();
-            
+
             return sections;
         }
-        
 
-        internal void bookmark_OnClick(object sender, EventArgs e)
+
+        internal void Bookmark_OnClick(object sender, EventArgs e)
         {
-            Bookmark bookmark = bookmarksFolder.bookmarks.Where(b => b.button == sender).FirstOrDefault();
-            generateNewTab(bookmark.url);
+            Bookmark bookmark = bookmarksFolder.Bookmarks.Where(b => b.button == sender).FirstOrDefault();
+            GenerateNewTab(bookmark.url);
 
         }
 
 
-        internal void bookmark_Close(object sender, EventArgs e)
+        internal void Bookmark_Close(object sender, EventArgs e)
         {
-            Bookmark bookmark = bookmarksFolder.bookmarks.Where(b => b.closeButton == sender).FirstOrDefault();
+            Bookmark bookmark = bookmarksFolder.Bookmarks.Where(b => b.closeButton == sender).FirstOrDefault();
             bookmarksFolder.removeBookmark(bookmark);
             bookmark.close();
-            updateBookmarks();
+            UpdateBookmarks();
 
         }
 
-        public Color getBackColor()
+        public Color GetBackColor()
         {
             return owner.backColor;
         }
 
-        public Color getForeColor()
+        public Color GetForeColor()
         {
             return owner.foreColor;
         }
 
-        public Color getAccentColor()
+        public Color GetAccentColor()
         {
             return owner.accentColor;
+        }
+
+        private void Close()
+        {
+            owner.RemoveContentPanel(this);
+            Content.Dispose();
+            TabsPanel.Dispose();
+            textURL.Dispose();
+            searchIcon.Dispose();
+            reloadButton.Dispose();
+            forwardButton.Dispose();
+            backButton.Dispose();
+            addBookmarksButton.Dispose();
+            closeButton.Dispose();
+            contentHeader.Dispose();
+            Bookmarks.Dispose();
+            foreach (Button button in tabs.Select(t => t.GetButton())) { button.Dispose(); }
         }
 
     }
