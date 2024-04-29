@@ -84,6 +84,15 @@ namespace SDDWebBrowser
             WM_RBUTTONDBLCLK = 0x206, //Right mousebutton do
         }
 
+        public enum Direction
+        {
+            Left,
+            Right,
+            Up,
+            Down,
+        }
+
+
         public void RemoveControl(Control control)
         {
             Controls.Remove(control);
@@ -756,8 +765,8 @@ namespace SDDWebBrowser
                 {
                     int rightExtension = ExtendRectangleWidthRight(rectangle.X + rectangle.Width, rectangle.Y, table.Width, rectangle.Height, rectangles);
                     int downExtension = ExtendRectangleHeightDown(rectangle.Y + rectangle.Height, rectangle.X, table.Height, rectangle.Width + rightExtension, rectangles);
-                    int leftExtension = ExtendRectangleWidthLeft(rectangle.X - 1, rectangle.Y, rectangle.Height, rectangles);
-                    int upExtension = ExtendRectangleHeightUp(rectangle.Y - 1, rectangle.X, rectangle.Width + rightExtension, rectangles);
+                    int leftExtension = ExtendRectangleWidthLeft(rectangle.X - 1, rectangle.Y, rectangle.Height + downExtension, rectangles);
+                    int upExtension = ExtendRectangleHeightUp(rectangle.Y - 1, rectangle.X, rectangle.Width + rightExtension + leftExtension, rectangles);
                     rectangle.X = (rectangle.X - leftExtension) * gridSize.Width + contentSpace.Left;
                     rectangle.Y = (rectangle.Y - upExtension) * gridSize.Height + contentSpace.Top;
                     rectangle.Width = (rectangle.Width + rightExtension + leftExtension) * gridSize.Width;
@@ -1173,6 +1182,55 @@ namespace SDDWebBrowser
             }
         }
 
+        private int UniversalExtendRectangle(int startX, int startY, int thickness, List<Rectangle> rectangles, Direction direction, int maxExtension = 0)
+        {
+            /*
+             Given a starting position of (startX, startY), the width/height of the table in direction you are extending in maxExtention, 
+            the height of the rectangle in thickness and a list of rectangles that the rectangle needs to stop on when being extended. 
+            This function will check positions of the grid, checking the starting position first, to extend the rectangle in a direction until 
+            it hits another rectangle or the edge, returning the distance it extended.
+             */
+            Dictionary<Direction, Func<int, int>> getParallelPosition = new Dictionary<Direction, Func<int, int>>
+            {
+                { Direction.Right, extDis => startX + extDis },
+                { Direction.Left, extDis => startX - extDis },
+                { Direction.Up, extDis => startY + extDis },
+                { Direction.Down, extDis => startX - extDis }
+            }; //represents the parallel coord position to the direction of extension, given the extension distance
+            Dictionary<Direction, Func<int, int, Point>> getNewCoord = new Dictionary<Direction, Func<int, int, Point>>
+            {
+                { Direction.Right, (extDis, perpDist) => new Point(startX + extDis, perpDist + startY) },
+                { Direction.Left, (extDis, perpDist) => new Point(startX - extDis, perpDist + startY) },
+                { Direction.Up, (extDis, perpDist) => new Point(perpDist + startX, startY + extDis) },
+                { Direction.Down, (extDis, perpDist) => new Point(perpDist + startX, startX - extDis) }
+            }; //represents the coord position to check
+            Dictionary<Direction, Func<int, bool>> getEndReachCondition = new Dictionary<Direction, Func<int, bool>>
+            {
+                { Direction.Right, paraPos => paraPos < maxExtension },
+                { Direction.Left, paraPos => paraPos >= 0 },
+                { Direction.Up, paraPos => paraPos >= 0},
+                { Direction.Down, paraPos => paraPos < maxExtension }
+            }; //represents the condition to check to see if the end of a column/row is reached, i.e. one increment of extension, given the perpendicular distance.
+
+
+            int extensionDistance = 0;
+            bool hasHitAnotherRectangle = false;
+            while (getEndReachCondition[direction](getParallelPosition[direction](extensionDistance)) && !hasHitAnotherRectangle)
+            {
+                for (int perpendicularDistance = 0; perpendicularDistance < thickness; perpendicularDistance++)
+                {;
+                    Point coord = getNewCoord[direction](extensionDistance, perpendicularDistance);
+                    if (rectangles.Any(r => PointInRectangle(coord, r))) //check if the coord is inside another rectangle
+                    {
+                        hasHitAnotherRectangle = true;
+                    }
+                }
+                extensionDistance++;
+            }
+            extensionDistance -= hasHitAnotherRectangle ? 1 : 0;
+            return extensionDistance;
+        }
+
         private int ExtendRectangleWidthRight(int startX, int startY, int maxExtension, int thickness, List<Rectangle> rectangles)
         {
             /*
@@ -1180,23 +1238,7 @@ namespace SDDWebBrowser
             list of rectangles that the rectangle needs to stop on when being extended. This function will check positions of the grid, checking the
             starting position first, to extend the rectangle right until it hits another rectangle or the edge, returning the distance it extended.
              */
-
-            int extendX = 0;
-            bool hasHitAnotherRectangle = false;
-            while (extendX + startX < maxExtension && !hasHitAnotherRectangle)
-                {
-                for (int y = 0; y < thickness; y++)
-                {
-                    Point Coord = new Point(extendX + startX, y + startY);
-                    if (rectangles.Any(r => PointInRectangle(Coord, r))) //check if the coord is inside another rectangle
-                    {
-                        hasHitAnotherRectangle = true;
-                    }
-                }
-                extendX++;
-            }
-            extendX -= hasHitAnotherRectangle ? 1 : 0;
-            return extendX;
+            return UniversalExtendRectangle(startX, startY, thickness, rectangles, Direction.Right, maxExtension);
         }
 
         private int ExtendRectangleHeightDown(int startY, int startX, int maxExtension, int thickness, List<Rectangle> rectangles)
@@ -1206,23 +1248,7 @@ namespace SDDWebBrowser
             list of rectangles that the rectangle needs to stop on when being extended. This function will check positions of the grid, checking the
             starting position first, to extend the rectangle down until it hits another rectangle or the edge, returning the distance it extended.
              */
-
-            int extendY = 0;
-            bool hasHitAnotherRectangle = false;
-            while (extendY + startY < maxExtension && !hasHitAnotherRectangle)
-            {
-                for (int x = 0; x < thickness; x++)
-                {
-                    Point Coord = new Point(x + startX, extendY + startY);
-                    if (rectangles.Any(r => PointInRectangle(Coord, r))) //check if the coord is inside another rectangle
-                    {
-                        hasHitAnotherRectangle = true;
-                    }
-                }
-                extendY++;
-            }
-            extendY -= hasHitAnotherRectangle ? 1 : 0;
-            return extendY;
+            return UniversalExtendRectangle(startX, startY, thickness, rectangles, Direction.Down, maxExtension);
         }
 
         private int ExtendRectangleWidthLeft(int startX, int startY, int thickness, List<Rectangle> rectangles)
@@ -1233,23 +1259,7 @@ namespace SDDWebBrowser
             list of rectangles that the rectangle needs to stop on when being extended. This function will check positions of the grid, checking the
             starting position first, to extend the rectangle left until it hits another rectangle or the edge, returning the distance it extended.
              */
-
-            int extendX = 0;
-            bool hasHitAnotherRectangle = false;
-            while (startX - extendX >= 0 && !hasHitAnotherRectangle)
-                {
-                for (int y = 0; y < thickness; y++)
-                {
-                    Point Coord = new Point(startX - extendX, y + startY);
-                    if (rectangles.Any(r => PointInRectangle(Coord, r))) //check if the coord is inside another rectangle
-                    {
-                        hasHitAnotherRectangle = true;
-                    }
-                }
-                extendX++;
-            }
-            extendX -= hasHitAnotherRectangle ? 1 : 0;
-            return extendX;
+            return UniversalExtendRectangle(startX, startY, thickness, rectangles, Direction.Left);
         }
 
         private int ExtendRectangleHeightUp(int startY, int startX, int thickness, List<Rectangle> rectangles)
@@ -1259,23 +1269,7 @@ namespace SDDWebBrowser
             list of rectangles that the rectangle needs to stop on when being extended. This function will check positions of the grid, checking the
             starting position first, to extend the rectangle down until it hits another rectangle or the edge, returning the distance it extended.
              */
-
-            int extendY = 0;
-            bool hasHitAnotherRectangle = false;
-            while (startY - extendY >= 0 && !hasHitAnotherRectangle)
-            {
-                for (int x = 0; x < thickness; x++)
-                {
-                    Point Coord = new Point(x + startX, startY - extendY);
-                    if (rectangles.Any(r => PointInRectangle(Coord, r))) //check if the coord is inside another rectangle
-                    {
-                        hasHitAnotherRectangle = true;
-                    }
-                }
-                extendY++;
-            }
-            extendY -= hasHitAnotherRectangle ? 1 : 0;
-            return extendY;
+            return UniversalExtendRectangle(startX, startY, thickness, rectangles, Direction.Up);
         }
 
         private List<Rectangle> GetRectangles()
