@@ -549,6 +549,10 @@ namespace SDDBrowser
                         UpdateTabs();
                     }
                 }
+                if (currentTab == tab)
+                {
+                    GenerateNewTab(defaultURL);
+                }
             }
         }
 
@@ -809,6 +813,8 @@ namespace SDDBrowser
             Button closeBtn = tab.GetCloseButton();
             closeBtn.Click -= CloseTab;
             closeBtn.Click += new EventHandler(contentPanel.CloseTab);
+
+            tab.SetUpdateTabsFunction(contentPanel.UpdateTabs);
         }
 
         // Remove all event handlers from the control's named event.
@@ -1058,6 +1064,11 @@ namespace SDDBrowser
 
         protected bool CheckUrl(string url)
         {
+            // checks if url follows a url format.
+            if (url == "")
+            {
+                return false;
+            }
             string urlWithProtocol = "http://" + url;
             string domainPattern = string.Join("|", owner.urlDomains.Select(x => x + "/"));
             bool result =
@@ -1173,13 +1184,13 @@ namespace SDDBrowser
         public void RemoveBookmark(string url)
         {
             Bookmark bookmark = bookmarksFolder.Find(b => b.url == url)[0];
-            bookmarksFolder.removeBookmark(bookmark);
+            bookmarksFolder.RemoveBookmark(bookmark);
         }
 
         public void DownloadBookmarks()
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
-            string jsonString = JsonSerializer.Serialize(bookmarksFolder.getJSON(), options);
+            string jsonString = JsonSerializer.Serialize(bookmarksFolder.GetJSON(), options);
             File.WriteAllText(bookmarkFileName, jsonString);
         }
 
@@ -1207,7 +1218,7 @@ namespace SDDBrowser
                                         <dl>
                                             <p>
                                             </p>
-                                            {bookmarksFolder.toHTML()}
+                                            {bookmarksFolder.ToHTML()}
                                         </d1><p>
                                         </p>
                                     </dt>
@@ -1257,14 +1268,14 @@ namespace SDDBrowser
                     {
                         int dlOffset = 1;
                         string folder = BookmarkFolders[i];
-                        bookmarksFolder.addHTML(folder, this, dlOffset);
+                        bookmarksFolder.AddHTML(folder, this, dlOffset);
                         dlOffset -= Regex.Matches(folder, "</DL>").Count;
                         while (dlOffset > 0)
                         {
                             i++;
                             dlOffset++;
                             folder = BookmarkFolders[i];
-                            bookmarksFolder.addHTML(folder, this, dlOffset);
+                            bookmarksFolder.AddHTML(folder, this, dlOffset);
                             dlOffset -= Regex.Matches(folder, "</DL>").Count;
                         }
                     }
@@ -1302,8 +1313,8 @@ namespace SDDBrowser
         internal void Bookmark_Close(object sender, EventArgs e)
         {
             Bookmark bookmark = bookmarksFolder.Bookmarks.Where(b => b.closeButton == sender).FirstOrDefault();
-            bookmarksFolder.removeBookmark(bookmark);
-            bookmark.close();
+            bookmarksFolder.RemoveBookmark(bookmark);
+            bookmark.Close();
             UpdateBookmarks();
 
         }

@@ -20,7 +20,7 @@ namespace SDDTabs
         public bool isMouseDown = false;
         public Point whereMouseDown;
         public Rectangle lastRectangle = new Rectangle();
-        readonly voidFunction updateTabs;
+        voidFunction updateTabs;
 
         public Tab(ChromiumWebBrowser browser, voidFunction updateTabs)
         {
@@ -87,6 +87,11 @@ namespace SDDTabs
         public void SetHistoryIndex(int index)
         {
             historyIndex = index;
+        }
+
+        public void SetUpdateTabsFunction(voidFunction updateTabs)
+        {
+            this.updateTabs = updateTabs;
         }
 
         delegate void SetStringCallback(string text);

@@ -14,7 +14,7 @@ namespace SDDBrowser
         internal BookmarkFolder(string name)
         {
             this.Name = name;
-            setJSON();
+            SetJSON();
         }
 
         internal BookmarkFolder(BookmarkFolderJson json, ContentPanel cp)
@@ -27,22 +27,22 @@ namespace SDDBrowser
         internal BookmarkFolder(string HTML, ContentPanel cp)
         {
             Name = ContentPanel.GetStringBetween(">", "</h3>", HTML);
-            addHTML(ContentPanel.GetStringBetween("<dl>", "</dl>", HTML), cp, 1);
+            AddHTML(ContentPanel.GetStringBetween("<dl>", "</dl>", HTML), cp, 1);
         }
 
-        private void setJSON()
+        private void SetJSON()
         {
             JSONRepresentation = new BookmarkFolderJson
             {
                 Name = Name,
-                Bookmarks = Bookmarks.Select(b => b.getJSON()).ToList(),
-                Folders = Folders.Select(f => f.getJSON()).ToList()
+                Bookmarks = Bookmarks.Select(b => b.GetJSON()).ToList(),
+                Folders = Folders.Select(f => f.GetJSON()).ToList()
             };
         }
 
-        public BookmarkFolderJson getJSON()
+        public BookmarkFolderJson GetJSON()
         {
-            setJSON();
+            SetJSON();
             return JSONRepresentation;
         }
 
@@ -56,7 +56,7 @@ namespace SDDBrowser
             return finds;
         }
 
-        public void removeBookmark(Bookmark bookmark)
+        public void RemoveBookmark(Bookmark bookmark)
         {
             if (bookmark == null)
             {
@@ -70,26 +70,26 @@ namespace SDDBrowser
             {
                 foreach (BookmarkFolder folder in Folders)
                 {
-                    folder.removeBookmark(bookmark);
+                    folder.RemoveBookmark(bookmark);
                 }
             }
         }
 
-        public string toHTML()
+        public string ToHTML()
         {
             return $@"<dt>
                     <h3>{Name}</h3>
                         <dl>
                             <p>
                             </p>
-                            {String.Join("\n", Bookmarks.Select(b => b.toHTML()))}
-                            {String.Join("\n", Folders.Select(b => b.toHTML()))}
+                            {String.Join("\n", Bookmarks.Select(b => b.ToHTML()))}
+                            {String.Join("\n", Folders.Select(b => b.ToHTML()))}
                         </d1><p>
                         </p>
                     </dt>";
         }
 
-        public void addHTML(string HTML, ContentPanel cp, int dlOffset)
+        public void AddHTML(string HTML, ContentPanel cp, int dlOffset)
         {
             dlOffset--;
             List<string> elements = ContentPanel.GetHTMLTagContent("dt", HTML);

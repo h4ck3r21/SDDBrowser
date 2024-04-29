@@ -33,7 +33,7 @@
             this.EnterButton = new System.Windows.Forms.Button();
             this.ColorDialog = new System.Windows.Forms.ColorDialog();
             this.ForeColorLabel = new System.Windows.Forms.Label();
-            this.BackColor = new System.Windows.Forms.Label();
+            this.BackColorLabel = new System.Windows.Forms.Label();
             this.AccentColor = new System.Windows.Forms.Label();
             this.ForeColorButton = new System.Windows.Forms.Button();
             this.BackColorButton = new System.Windows.Forms.Button();
@@ -73,12 +73,12 @@
             // 
             // BackColor
             // 
-            this.BackColor.AutoSize = true;
-            this.BackColor.Location = new System.Drawing.Point(80, 119);
-            this.BackColor.Name = "BackColor";
-            this.BackColor.Size = new System.Drawing.Size(136, 20);
-            this.BackColor.TabIndex = 4;
-            this.BackColor.Text = "Background Color";
+            this.BackColorLabel.AutoSize = true;
+            this.BackColorLabel.Location = new System.Drawing.Point(80, 119);
+            this.BackColorLabel.Name = "BackColor";
+            this.BackColorLabel.Size = new System.Drawing.Size(136, 20);
+            this.BackColorLabel.TabIndex = 4;
+            this.BackColorLabel.Text = "Background Color";
             // 
             // AccentColor
             // 
@@ -139,7 +139,7 @@
             this.Controls.Add(this.BackColorButton);
             this.Controls.Add(this.ForeColorButton);
             this.Controls.Add(this.AccentColor);
-            this.Controls.Add(this.BackColor);
+            this.Controls.Add(this.BackColorLabel);
             this.Controls.Add(this.ForeColorLabel);
             this.Controls.Add(this.EnterButton);
             this.Controls.Add(this.CloseButton);
@@ -162,7 +162,7 @@
         private System.Windows.Forms.Button EnterButton;
         private System.Windows.Forms.ColorDialog ColorDialog;
         private System.Windows.Forms.Label ForeColorLabel;
-        private System.Windows.Forms.Label BackColor;
+        private System.Windows.Forms.Label BackColorLabel;
         private System.Windows.Forms.Label AccentColor;
         private System.Windows.Forms.Button ForeColorButton;
         private System.Windows.Forms.Button BackColorButton;

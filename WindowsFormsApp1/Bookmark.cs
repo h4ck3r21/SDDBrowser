@@ -16,10 +16,10 @@ namespace SDDBrowser
 
         internal Bookmark(string url, string title, ContentPanel cp)
         {
-            generate(url, title, cp);
+            Generate(url, title, cp);
         }
 
-        internal void generate(string url, string title, ContentPanel cp)
+        internal void Generate(string url, string title, ContentPanel cp)
         {
             contentHolder = cp;
             this.url = url;
@@ -51,7 +51,7 @@ namespace SDDBrowser
             button.Click += cp.Bookmark_OnClick;
             Main.AddHoverColorToButton(button);
 
-            setJSON();
+            SetJSON();
         }
 
         private void CloseButton_Paint(object sender, PaintEventArgs e)
@@ -72,7 +72,7 @@ namespace SDDBrowser
             contentHolder = cp;
             url = json.Url;
             title = json.Name;
-            generate(url, title, cp);
+            Generate(url, title, cp);
         }
 
         internal Bookmark(string HTML, ContentPanel cp)
@@ -80,10 +80,10 @@ namespace SDDBrowser
             url = ContentPanel.GetStringBetween("href=\"", "\"", HTML);
             title = ContentPanel.GetStringBetween(">", "</a>", HTML);
             contentHolder = cp;
-            generate(url, title, cp);
+            Generate(url, title, cp);
         }
 
-        private void setJSON()
+        private void SetJSON()
         {
             JSONRepresentation = new BookmarkJson
             {
@@ -92,13 +92,13 @@ namespace SDDBrowser
             };
         }
 
-        public BookmarkJson getJSON()
+        public BookmarkJson GetJSON()
         {
-            setJSON();
+            SetJSON();
             return JSONRepresentation;
         }
 
-        public string toHTML()
+        public string ToHTML()
         {
             return
                 $@"<dt>
@@ -106,7 +106,7 @@ namespace SDDBrowser
                 </dt>";
         }
 
-        public void close()
+        public void Close()
         {
             button.Dispose();
         }

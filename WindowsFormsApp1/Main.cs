@@ -756,8 +756,8 @@ namespace SDDWebBrowser
                 {
                     int rightExtension = ExtendRectangleWidthRight(rectangle.X + rectangle.Width, rectangle.Y, table.Width, rectangle.Height, rectangles);
                     int downExtension = ExtendRectangleHeightDown(rectangle.Y + rectangle.Height, rectangle.X, table.Height, rectangle.Width + rightExtension, rectangles);
-                    int leftExtension = ExtendRectangleWidthLeft(rectangle.X + rectangle.Width, rectangle.Y, rectangle.Height, rectangles);
-                    int upExtension = ExtendRectangleHeightUp(rectangle.Y + rectangle.Height, rectangle.X, rectangle.Width + rightExtension, rectangles);
+                    int leftExtension = ExtendRectangleWidthLeft(rectangle.X - 1, rectangle.Y, rectangle.Height, rectangles);
+                    int upExtension = ExtendRectangleHeightUp(rectangle.Y - 1, rectangle.X, rectangle.Width + rightExtension, rectangles);
                     rectangle.X = (rectangle.X - leftExtension) * gridSize.Width + contentSpace.Left;
                     rectangle.Y = (rectangle.Y - upExtension) * gridSize.Height + contentSpace.Top;
                     rectangle.Width = (rectangle.Width + rightExtension + leftExtension) * gridSize.Width;
@@ -1176,102 +1176,105 @@ namespace SDDWebBrowser
         private int ExtendRectangleWidthRight(int startX, int startY, int maxExtension, int thickness, List<Rectangle> rectangles)
         {
             /*
-             Given a starting position of (startX, startY) a maximum x point in maxExtension, the height of the rectangle in thickness and a 
+             Given a starting position of (startX, startY), a maximum x point in maxExtension, the height of the rectangle in thickness and a 
             list of rectangles that the rectangle needs to stop on when being extended. This function will check positions of the grid, checking the
             starting position first, to extend the rectangle right until it hits another rectangle or the edge, returning the distance it extended.
              */
 
-            int extendX = 100;
-            for (int y = 0; y < thickness; y++)
-            {
-                int newExtendX = 0;
-                Point Coord = new Point(newExtendX + startX, y + startY);
-                while (Coord.X < maxExtension)
+            int extendX = 0;
+            bool hasHitAnotherRectangle = false;
+            while (extendX + startX < maxExtension && !hasHitAnotherRectangle)
                 {
-                    if (rectangles.Any(r => PointInRectangle(Coord, r)))
+                for (int y = 0; y < thickness; y++)
+                {
+                    Point Coord = new Point(extendX + startX, y + startY);
+                    if (rectangles.Any(r => PointInRectangle(Coord, r))) //check if the coord is inside another rectangle
                     {
-                        break;
+                        hasHitAnotherRectangle = true;
                     }
-                    else
-                    {
-                        newExtendX++;
-                    }
-                    Coord = new Point(newExtendX + startX, y + startY);
                 }
-                extendX = Math.Min(extendX, newExtendX);
+                extendX++;
             }
+            extendX -= hasHitAnotherRectangle ? 1 : 0;
             return extendX;
         }
 
         private int ExtendRectangleHeightDown(int startY, int startX, int maxExtension, int thickness, List<Rectangle> rectangles)
         {
-            int extendY = 100;
-            for (int x = 0; x < thickness; x++)
+            /*
+             Given a starting position of (startX, startY), a maximum y point in maxExtension, the width of the rectangle in thickness and a 
+            list of rectangles that the rectangle needs to stop on when being extended. This function will check positions of the grid, checking the
+            starting position first, to extend the rectangle down until it hits another rectangle or the edge, returning the distance it extended.
+             */
+
+            int extendY = 0;
+            bool hasHitAnotherRectangle = false;
+            while (extendY + startY < maxExtension && !hasHitAnotherRectangle)
             {
-                int newExtendY = 0;
-                Point Coord = new Point(x + startX, newExtendY + startY);
-                while (Coord.Y < maxExtension)
+                for (int x = 0; x < thickness; x++)
                 {
-                    if (rectangles.Any(r => PointInRectangle(Coord, r)))
+                    Point Coord = new Point(x + startX, extendY + startY);
+                    if (rectangles.Any(r => PointInRectangle(Coord, r))) //check if the coord is inside another rectangle
                     {
-                        break;
+                        hasHitAnotherRectangle = true;
                     }
-                    else
-                    {
-                        newExtendY++;
-                    }
-                    Coord = new Point(x + startX, newExtendY + startY);
                 }
-                extendY = Math.Min(extendY, newExtendY);
+                extendY++;
             }
+            extendY -= hasHitAnotherRectangle ? 1 : 0;
             return extendY;
         }
 
         private int ExtendRectangleWidthLeft(int startX, int startY, int thickness, List<Rectangle> rectangles)
         {
-            int extendX = 100;
-            for (int y = 0; y < thickness; y++)
-            {
-                int newExtendX = 0;
-                Point Coord = new Point(startX - newExtendX - 2, y + startY);
-                while (Coord.X >= 0)
+
+            /*
+             Given a starting position of (startX, startY), the height of the rectangle in thickness and a 
+            list of rectangles that the rectangle needs to stop on when being extended. This function will check positions of the grid, checking the
+            starting position first, to extend the rectangle left until it hits another rectangle or the edge, returning the distance it extended.
+             */
+
+            int extendX = 0;
+            bool hasHitAnotherRectangle = false;
+            while (startX - extendX >= 0 && !hasHitAnotherRectangle)
                 {
-                    if (rectangles.Any(r => PointInRectangle(Coord, r)))
+                for (int y = 0; y < thickness; y++)
+                {
+                    Point Coord = new Point(startX - extendX, y + startY);
+                    if (rectangles.Any(r => PointInRectangle(Coord, r))) //check if the coord is inside another rectangle
                     {
-                        break;
+                        hasHitAnotherRectangle = true;
                     }
-                    else
-                    {
-                        newExtendX++;
-                    }
-                    Coord = new Point(startX - newExtendX - 2, y + startY);
                 }
-                extendX = Math.Min(extendX, newExtendX);
+                extendX++;
             }
+            extendX -= hasHitAnotherRectangle ? 1 : 0;
             return extendX;
         }
 
         private int ExtendRectangleHeightUp(int startY, int startX, int thickness, List<Rectangle> rectangles)
         {
-            int extendY = 100;
-            for (int x = 0; x < thickness; x++)
+            /*
+             Given a starting position of (startX, startY), the width of the rectangle in thickness and a 
+            list of rectangles that the rectangle needs to stop on when being extended. This function will check positions of the grid, checking the
+            starting position first, to extend the rectangle down until it hits another rectangle or the edge, returning the distance it extended.
+             */
+
+            int extendY = 0;
+            bool hasHitAnotherRectangle = false;
+            while (startY - extendY >= 0 && !hasHitAnotherRectangle)
             {
-                int newExtendY = 0;
-                Point Coord = new Point(x + startX, startY - newExtendY - 2);
-                while (Coord.Y >= 0)
+                for (int x = 0; x < thickness; x++)
                 {
-                    if (rectangles.Any(r => PointInRectangle(Coord, r)))
+                    Point Coord = new Point(x + startX, startY - extendY);
+                    if (rectangles.Any(r => PointInRectangle(Coord, r))) //check if the coord is inside another rectangle
                     {
-                        break;
+                        hasHitAnotherRectangle = true;
                     }
-                    else
-                    {
-                        newExtendY++;
-                    }
-                    Coord = new Point(x + startX, startY - newExtendY - 2);
                 }
-                extendY = Math.Min(extendY, newExtendY);
+                extendY++;
             }
+            extendY -= hasHitAnotherRectangle ? 1 : 0;
             return extendY;
         }
 
