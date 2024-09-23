@@ -2,6 +2,7 @@
 using System.Windows.Forms;
 
 namespace SDDWebBrowser
+
 {
     internal static class Program
     {

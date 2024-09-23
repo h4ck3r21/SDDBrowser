@@ -1443,7 +1443,6 @@ namespace SDDWebBrowser
             WindowState = FormWindowState.Minimized;
         }
 
-
         // tabs
         public void TabsButtonMouseMove(object sender, MouseEventArgs e)
         {

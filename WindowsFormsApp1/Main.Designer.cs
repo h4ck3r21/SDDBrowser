@@ -331,7 +331,6 @@ namespace SDDWebBrowser
             this.BaseMenuStrip.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
-
         }
 
         #endregion
