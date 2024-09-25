@@ -1,0 +1,30 @@
+﻿body {
+    padding: 20%;
+    background-color:floralwhite;
+    color: darkslategrey;
+    font-family: 'Times New Roman', Times, serif;
+}
+
+button {
+    background-color: floralwhite;
+    color: black;
+    border-radius: 10px;
+}
+
+button:hover {
+    background-color: darkslategrey;
+    animation: hoverAnimation 1s ease 1 normal;
+    color: azure;
+}
+
+@keyframes hoverAnimation {
+    0% {
+        background-color: floralwhite;
+        color: black;
+    }
+
+    100% {
+        background-color: darkslategrey;
+        color: azure;
+    }
+}

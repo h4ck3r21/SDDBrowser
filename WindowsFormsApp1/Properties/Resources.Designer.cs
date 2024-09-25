@@ -59,5 +59,91 @@ namespace SDDBrowser.Properties {
                 resourceCulture = value;
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Domain,Type,Sponsoring Organisation
+        ///.abbott,generic,&quot;Abbott Laboratories, Inc.&quot;
+        ///.abogado,generic,Top Level Domain Holdings Limited
+        ///.ac,country-code,Network Information Center (AC Domain Registry) c/o Cable and Wireless (Ascension Island)
+        ///.academy,generic,&quot;Half Oaks, LLC&quot;
+        ///.accountant,generic,dot Accountant Limited
+        ///.accountants,generic,&quot;Knob Town, LLC&quot;
+        ///.active,generic,&quot;The Active Network, Inc&quot;
+        ///.actor,generic,United TLD Holdco Ltd.
+        ///.ad,country-code,Andorra Telecom
+        ///.ads,generic,Charleston Road Registr [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string domain_names {
+            get {
+                return ResourceManager.GetString("domain_names", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &lt;html&gt;
+        ///&lt;head&gt;
+        ///    &lt;style&gt;{3}&lt;/style&gt;
+        ///&lt;/head&gt;
+        ///&lt;body&gt;
+        ///    &lt;h1&gt;It seems this site cannot be found.&lt;/h1&gt;
+        ///    &lt;p&gt;We cannot connect to the server. ({2})&lt;/p&gt;
+        ///    &lt;p&gt;Error code: {1}&lt;/p&gt;
+        ///    &lt;h2&gt;If you entered the correct address, you can:&lt;/h2&gt;
+        ///    &lt;h4&gt;Try again later&lt;/h4&gt;
+        ///    &lt;h4&gt;Check your internet connection&lt;/h4&gt;
+        ///    &lt;p&gt;Check your cables, reboot routers, modems, and any other network devices.&lt;/p&gt;
+        ///    &lt;h4&gt;Check your DNS settings&lt;/h4&gt;
+        ///    &lt;p&gt;Contact your network administrator if you do not know what th [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string error {
+            get {
+                return ResourceManager.GetString("error", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to body {
+        ///    padding: 20%;
+        ///    background-color:floralwhite;
+        ///    color: darkslategrey;
+        ///    font-family: &apos;Times New Roman&apos;, Times, serif;
+        ///}
+        ///
+        ///button {
+        ///    background-color: floralwhite;
+        ///    color: black;
+        ///    border-radius: 10px;
+        ///}
+        ///
+        ///button:hover {
+        ///    background-color: darkslategrey;
+        ///    animation: hoverAnimation 1s ease 1 normal;
+        ///    color: azure;
+        ///}
+        ///
+        ///@keyframes hoverAnimation {
+        ///    0% {
+        ///        background-color: floralwhite;
+        ///        color: black;
+        ///    }
+        ///
+        ///    100% {
+        ///        background-co [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string errorCss {
+            get {
+                return ResourceManager.GetString("errorCss", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap logo {
+            get {
+                object obj = ResourceManager.GetObject("logo", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
     }
 }

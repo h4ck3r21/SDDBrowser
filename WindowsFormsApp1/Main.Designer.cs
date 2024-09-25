@@ -1,6 +1,6 @@
 ﻿using System.Windows.Forms;
 
-namespace WindowsFormsApp1
+namespace SDDWebBrowser
 {
     partial class Main
     {
@@ -31,172 +31,276 @@ namespace WindowsFormsApp1
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.Content = new System.Windows.Forms.Panel();
-            this.Tabs = new System.Windows.Forms.Panel();
-            this.contentHeader = new System.Windows.Forms.Panel();
-            this.Bookmarks = new System.Windows.Forms.Panel();
-            this.reloadButton = new System.Windows.Forms.Button();
-            this.forwardButton = new System.Windows.Forms.Button();
-            this.backButton = new System.Windows.Forms.Button();
-            this.searchIcon = new System.Windows.Forms.Button();
-            this.textURL = new System.Windows.Forms.TextBox();
-            this.closeButton = new System.Windows.Forms.Button();
-            this.maximiseButton = new System.Windows.Forms.Button();
-            this.minimiseButton = new System.Windows.Forms.Button();
-            this.minimiseToolTip = new System.Windows.Forms.ToolTip(this.components);
-            this.closeToolTip = new System.Windows.Forms.ToolTip(this.components);
-            this.Content.SuspendLayout();
-            this.contentHeader.SuspendLayout();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Main));
+            this.ContentPanel = new System.Windows.Forms.Panel();
+            this.TabsPanel = new System.Windows.Forms.Panel();
+            this.newTabBtn = new System.Windows.Forms.Button();
+            this.ContentHeader = new System.Windows.Forms.Panel();
+            this.AddBookmarkButton = new System.Windows.Forms.Button();
+            this.BookmarksPanel = new System.Windows.Forms.Panel();
+            this.ReloadButton = new System.Windows.Forms.Button();
+            this.ForwardButton = new System.Windows.Forms.Button();
+            this.BackButton = new System.Windows.Forms.Button();
+            this.SearchIcon = new System.Windows.Forms.Button();
+            this.TextURL = new System.Windows.Forms.TextBox();
+            this.CloseButton = new System.Windows.Forms.Button();
+            this.MaximiseButton = new System.Windows.Forms.Button();
+            this.MinimiseButton = new System.Windows.Forms.Button();
+            this.MinimiseToolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.CloseToolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.BaseMenuStrip = new System.Windows.Forms.MenuStrip();
+            this.Settings = new System.Windows.Forms.ToolStripMenuItem();
+            this.MoreSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.BookmarkSettings = new System.Windows.Forms.ToolStripMenuItem();
+            this.ImportButton = new System.Windows.Forms.ToolStripMenuItem();
+            this.ExportButton = new System.Windows.Forms.ToolStripMenuItem();
+            this.BookmarkSettingsButton = new System.Windows.Forms.ToolStripMenuItem();
+            this.SettingsButton = new System.Windows.Forms.Button();
+            this.TabsPanel.SuspendLayout();
+            this.ContentHeader.SuspendLayout();
+            this.BaseMenuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
-            // Content
+            // ContentPanel
             // 
-            this.Content.BackColor = System.Drawing.Color.Transparent;
-            this.Content.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.Content.Cursor = System.Windows.Forms.Cursors.Default;
-            this.Content.Location = new System.Drawing.Point(56, 225);
-            this.Content.Name = "Content";
-            this.Content.Size = new System.Drawing.Size(1140, 695);
-            this.Content.TabIndex = 0;
+            this.ContentPanel.BackColor = System.Drawing.Color.Transparent;
+            this.ContentPanel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.ContentPanel.Cursor = System.Windows.Forms.Cursors.Default;
+            this.ContentPanel.Location = new System.Drawing.Point(56, 231);
+            this.ContentPanel.Name = "ContentPanel";
+            this.ContentPanel.Size = new System.Drawing.Size(1140, 695);
+            this.ContentPanel.TabIndex = 0;
             // 
-            // Tabs
+            // TabsPanel
             // 
-            this.Tabs.BackColor = System.Drawing.Color.Transparent;
-            this.Tabs.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.Tabs.Cursor = System.Windows.Forms.Cursors.Default;
-            this.Tabs.Location = new System.Drawing.Point(56, 155);
-            this.Tabs.Name = "Tabs";
-            this.Tabs.Size = new System.Drawing.Size(1140, 70);
-            this.Tabs.TabIndex = 0;
+            this.TabsPanel.BackColor = System.Drawing.Color.Transparent;
+            this.TabsPanel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.TabsPanel.Controls.Add(this.newTabBtn);
+            this.TabsPanel.Cursor = System.Windows.Forms.Cursors.Default;
+            this.TabsPanel.Location = new System.Drawing.Point(56, 161);
+            this.TabsPanel.Name = "TabsPanel";
+            this.TabsPanel.Size = new System.Drawing.Size(1140, 70);
+            this.TabsPanel.TabIndex = 0;
             // 
-            // contentHeader
+            // newTabBtn
             // 
-            this.contentHeader.BackColor = System.Drawing.Color.Transparent;
-            this.contentHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.contentHeader.Controls.Add(this.Bookmarks);
-            this.contentHeader.Controls.Add(this.reloadButton);
-            this.contentHeader.Controls.Add(this.forwardButton);
-            this.contentHeader.Controls.Add(this.backButton);
-            this.contentHeader.Controls.Add(this.searchIcon);
-            this.contentHeader.Controls.Add(this.textURL);
-            this.contentHeader.Cursor = System.Windows.Forms.Cursors.Default;
-            this.contentHeader.Location = new System.Drawing.Point(56, 55);
-            this.contentHeader.Name = "contentHeader";
-            this.contentHeader.Size = new System.Drawing.Size(1140, 100);
-            this.contentHeader.TabIndex = 0;
+            this.newTabBtn.Location = new System.Drawing.Point(3, 7);
+            this.newTabBtn.Name = "newTabBtn";
+            this.newTabBtn.Size = new System.Drawing.Size(50, 50);
+            this.newTabBtn.TabIndex = 0;
+            this.newTabBtn.Text = "+";
+            this.newTabBtn.UseVisualStyleBackColor = true;
             // 
-            // Bookmarks
+            // ContentHeader
             // 
-            this.Bookmarks.Location = new System.Drawing.Point(0, 57);
-            this.Bookmarks.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
-            this.Bookmarks.Name = "Bookmarks";
-            this.Bookmarks.Size = new System.Drawing.Size(1140, 42);
-            this.Bookmarks.TabIndex = 5;
+            this.ContentHeader.BackColor = System.Drawing.Color.Transparent;
+            this.ContentHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.ContentHeader.Controls.Add(this.AddBookmarkButton);
+            this.ContentHeader.Controls.Add(this.BookmarksPanel);
+            this.ContentHeader.Controls.Add(this.ReloadButton);
+            this.ContentHeader.Controls.Add(this.ForwardButton);
+            this.ContentHeader.Controls.Add(this.BackButton);
+            this.ContentHeader.Controls.Add(this.SearchIcon);
+            this.ContentHeader.Controls.Add(this.TextURL);
+            this.ContentHeader.Cursor = System.Windows.Forms.Cursors.Default;
+            this.ContentHeader.Location = new System.Drawing.Point(56, 55);
+            this.ContentHeader.Name = "ContentHeader";
+            this.ContentHeader.Size = new System.Drawing.Size(1140, 108);
+            this.ContentHeader.TabIndex = 0;
             // 
-            // reloadButton
+            // AddBookmarkButton
             // 
-            this.reloadButton.FlatAppearance.BorderSize = 0;
-            this.reloadButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.reloadButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.reloadButton.Location = new System.Drawing.Point(100, 0);
-            this.reloadButton.Name = "reloadButton";
-            this.reloadButton.Size = new System.Drawing.Size(50, 49);
-            this.reloadButton.TabIndex = 4;
-            this.reloadButton.Text = "O";
-            this.reloadButton.UseVisualStyleBackColor = true;
-            this.reloadButton.Click += new System.EventHandler(this.reloadButton_Click);
+            this.AddBookmarkButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.AddBookmarkButton.FlatAppearance.BorderSize = 0;
+            this.AddBookmarkButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.AddBookmarkButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.AddBookmarkButton.Location = new System.Drawing.Point(1085, -1);
+            this.AddBookmarkButton.Name = "AddBookmarkButton";
+            this.AddBookmarkButton.Size = new System.Drawing.Size(50, 49);
+            this.AddBookmarkButton.TabIndex = 6;
+            this.AddBookmarkButton.Text = "❤️";
+            this.AddBookmarkButton.UseVisualStyleBackColor = true;
             // 
-            // forwardButton
+            // BookmarksPanel
             // 
-            this.forwardButton.FlatAppearance.BorderSize = 0;
-            this.forwardButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.forwardButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.forwardButton.Location = new System.Drawing.Point(50, 0);
-            this.forwardButton.Name = "forwardButton";
-            this.forwardButton.Size = new System.Drawing.Size(50, 49);
-            this.forwardButton.TabIndex = 3;
-            this.forwardButton.UseVisualStyleBackColor = true;
-            this.forwardButton.Click += new System.EventHandler(this.forwardButton_Click);
-            this.forwardButton.Paint += new System.Windows.Forms.PaintEventHandler(this.forwardButton_Paint);
+            this.BookmarksPanel.Location = new System.Drawing.Point(0, 48);
+            this.BookmarksPanel.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
+            this.BookmarksPanel.Name = "BookmarksPanel";
+            this.BookmarksPanel.Size = new System.Drawing.Size(1140, 59);
+            this.BookmarksPanel.TabIndex = 5;
             // 
-            // backButton
+            // ReloadButton
             // 
-            this.backButton.FlatAppearance.BorderSize = 0;
-            this.backButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.backButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.backButton.Location = new System.Drawing.Point(0, 0);
-            this.backButton.Name = "backButton";
-            this.backButton.Size = new System.Drawing.Size(50, 49);
-            this.backButton.TabIndex = 2;
-            this.backButton.UseVisualStyleBackColor = true;
-            this.backButton.Click += new System.EventHandler(this.backButton_Click);
-            this.backButton.Paint += new System.Windows.Forms.PaintEventHandler(this.backButton_Paint);
+            this.ReloadButton.FlatAppearance.BorderSize = 0;
+            this.ReloadButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.ReloadButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.ReloadButton.Location = new System.Drawing.Point(100, 0);
+            this.ReloadButton.Name = "ReloadButton";
+            this.ReloadButton.Size = new System.Drawing.Size(50, 49);
+            this.ReloadButton.TabIndex = 4;
+            this.ReloadButton.UseVisualStyleBackColor = true;
+            this.ReloadButton.Paint += new System.Windows.Forms.PaintEventHandler(this.ReloadButton_Paint);
             // 
-            // searchIcon
+            // ForwardButton
             // 
-            this.searchIcon.FlatAppearance.BorderSize = 0;
-            this.searchIcon.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.searchIcon.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.searchIcon.Location = new System.Drawing.Point(150, 0);
-            this.searchIcon.Name = "searchIcon";
-            this.searchIcon.Size = new System.Drawing.Size(50, 49);
-            this.searchIcon.TabIndex = 1;
-            this.searchIcon.Text = "G";
-            this.searchIcon.UseVisualStyleBackColor = true;
+            this.ForwardButton.FlatAppearance.BorderSize = 0;
+            this.ForwardButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.ForwardButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.ForwardButton.Location = new System.Drawing.Point(50, 0);
+            this.ForwardButton.Name = "ForwardButton";
+            this.ForwardButton.Size = new System.Drawing.Size(50, 49);
+            this.ForwardButton.TabIndex = 3;
+            this.ForwardButton.UseVisualStyleBackColor = true;
             // 
-            // textURL
+            // BackButton
             // 
-            this.textURL.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.textURL.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.textURL.Location = new System.Drawing.Point(200, 0);
-            this.textURL.Name = "textURL";
-            this.textURL.Size = new System.Drawing.Size(940, 32);
-            this.textURL.TabIndex = 0;
-            this.textURL.Text = "www.google.com";
-            this.textURL.TextChanged += new System.EventHandler(this.textURL_TextChanged);
-            this.textURL.KeyDown += new System.Windows.Forms.KeyEventHandler(this.textURL_KeyDown);
+            this.BackButton.FlatAppearance.BorderSize = 0;
+            this.BackButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.BackButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.BackButton.Location = new System.Drawing.Point(0, 0);
+            this.BackButton.Name = "BackButton";
+            this.BackButton.Size = new System.Drawing.Size(50, 49);
+            this.BackButton.TabIndex = 2;
+            this.BackButton.UseVisualStyleBackColor = true;
             // 
-            // closeButton
+            // SearchIcon
             // 
-            this.closeButton.FlatAppearance.BorderSize = 0;
-            this.closeButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.closeButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.closeButton.Location = new System.Drawing.Point(1125, 8);
-            this.closeButton.Name = "closeButton";
-            this.closeButton.Size = new System.Drawing.Size(70, 49);
-            this.closeButton.TabIndex = 1;
-            this.closeButton.Text = "X";
-            this.closeButton.UseVisualStyleBackColor = true;
-            this.closeButton.Click += new System.EventHandler(this.closeButton_Click);
-            this.closeButton.MouseEnter += new System.EventHandler(this.closeButton_Enter);
-            this.closeButton.MouseLeave += new System.EventHandler(this.closeButton_Leave);
+            this.SearchIcon.FlatAppearance.BorderSize = 0;
+            this.SearchIcon.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.SearchIcon.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.SearchIcon.Location = new System.Drawing.Point(150, 0);
+            this.SearchIcon.Name = "SearchIcon";
+            this.SearchIcon.Size = new System.Drawing.Size(50, 49);
+            this.SearchIcon.TabIndex = 1;
+            this.SearchIcon.Text = "G";
+            this.SearchIcon.UseVisualStyleBackColor = true;
+            this.SearchIcon.Click += new System.EventHandler(this.SearchIcon_Click);
             // 
-            // maximiseButton
+            // TextURL
             // 
-            this.maximiseButton.FlatAppearance.BorderSize = 0;
-            this.maximiseButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.maximiseButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.maximiseButton.Location = new System.Drawing.Point(1054, 8);
-            this.maximiseButton.Name = "maximiseButton";
-            this.maximiseButton.Size = new System.Drawing.Size(70, 49);
-            this.maximiseButton.TabIndex = 2;
-            this.maximiseButton.Text = "[]";
-            this.maximiseButton.UseVisualStyleBackColor = true;
-            this.maximiseButton.Click += new System.EventHandler(this.maximiseButton_Click);
+            this.TextURL.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.TextURL.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.TextURL.Location = new System.Drawing.Point(200, 0);
+            this.TextURL.Name = "TextURL";
+            this.TextURL.Size = new System.Drawing.Size(867, 32);
+            this.TextURL.TabIndex = 0;
+            this.TextURL.Text = "www.google.com";
             // 
-            // minimiseButton
+            // CloseButton
             // 
-            this.minimiseButton.FlatAppearance.BorderSize = 0;
-            this.minimiseButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.minimiseButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.minimiseButton.Location = new System.Drawing.Point(986, 8);
-            this.minimiseButton.Name = "minimiseButton";
-            this.minimiseButton.Size = new System.Drawing.Size(70, 49);
-            this.minimiseButton.TabIndex = 3;
-            this.minimiseButton.Text = "-";
-            this.minimiseToolTip.SetToolTip(this.minimiseButton, "Minimise");
-            this.minimiseButton.UseVisualStyleBackColor = false;
-            this.minimiseButton.Click += new System.EventHandler(this.minimiseButton_Click);
+            this.CloseButton.FlatAppearance.BorderSize = 0;
+            this.CloseButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.CloseButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.CloseButton.Location = new System.Drawing.Point(1125, 8);
+            this.CloseButton.Name = "CloseButton";
+            this.CloseButton.Size = new System.Drawing.Size(70, 49);
+            this.CloseButton.TabIndex = 1;
+            this.CloseButton.Text = "X";
+            this.CloseButton.UseVisualStyleBackColor = true;
+            this.CloseButton.Click += new System.EventHandler(this.CloseButton_Click);
+            this.CloseButton.MouseEnter += new System.EventHandler(this.CloseButton_Enter);
+            this.CloseButton.MouseLeave += new System.EventHandler(this.CloseButton_Leave);
+            // 
+            // MaximiseButton
+            // 
+            this.MaximiseButton.FlatAppearance.BorderSize = 0;
+            this.MaximiseButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.MaximiseButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.MaximiseButton.Location = new System.Drawing.Point(1054, 8);
+            this.MaximiseButton.Name = "MaximiseButton";
+            this.MaximiseButton.Size = new System.Drawing.Size(70, 49);
+            this.MaximiseButton.TabIndex = 2;
+            this.MaximiseButton.Text = "[]";
+            this.MaximiseButton.UseVisualStyleBackColor = true;
+            this.MaximiseButton.Click += new System.EventHandler(this.MaximiseButton_Click);
+            // 
+            // MinimiseButton
+            // 
+            this.MinimiseButton.FlatAppearance.BorderSize = 0;
+            this.MinimiseButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.MinimiseButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.MinimiseButton.Location = new System.Drawing.Point(986, 8);
+            this.MinimiseButton.Name = "MinimiseButton";
+            this.MinimiseButton.Size = new System.Drawing.Size(70, 49);
+            this.MinimiseButton.TabIndex = 3;
+            this.MinimiseButton.Text = "-";
+            this.MinimiseToolTip.SetToolTip(this.MinimiseButton, "Minimise");
+            this.MinimiseButton.UseVisualStyleBackColor = false;
+            this.MinimiseButton.Click += new System.EventHandler(this.MinimiseButton_Click);
+            // 
+            // BaseMenuStrip
+            // 
+            this.BaseMenuStrip.BackColor = System.Drawing.Color.Transparent;
+            this.BaseMenuStrip.GripMargin = new System.Windows.Forms.Padding(2, 2, 0, 2);
+            this.BaseMenuStrip.ImageScalingSize = new System.Drawing.Size(24, 24);
+            this.BaseMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.Settings,
+            this.BookmarkSettings});
+            this.BaseMenuStrip.Location = new System.Drawing.Point(0, 0);
+            this.BaseMenuStrip.Name = "BaseMenuStrip";
+            this.BaseMenuStrip.Size = new System.Drawing.Size(1260, 33);
+            this.BaseMenuStrip.TabIndex = 4;
+            this.BaseMenuStrip.Visible = false;
+            // 
+            // Settings
+            // 
+            this.Settings.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.MoreSettingsToolStripMenuItem});
+            this.Settings.Name = "Settings";
+            this.Settings.Size = new System.Drawing.Size(92, 29);
+            this.Settings.Text = "Settings";
+            this.Settings.Click += new System.EventHandler(this.Settings_Click);
+            // 
+            // MoreSettingsToolStripMenuItem
+            // 
+            this.MoreSettingsToolStripMenuItem.Name = "MoreSettingsToolStripMenuItem";
+            this.MoreSettingsToolStripMenuItem.Size = new System.Drawing.Size(225, 34);
+            this.MoreSettingsToolStripMenuItem.Text = "More Settings";
+            this.MoreSettingsToolStripMenuItem.Click += new System.EventHandler(this.MoreSettingsToolStripMenuItem_Click);
+            // 
+            // BookmarkSettings
+            // 
+            this.BookmarkSettings.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ImportButton,
+            this.ExportButton,
+            this.BookmarkSettingsButton});
+            this.BookmarkSettings.Name = "BookmarkSettings";
+            this.BookmarkSettings.Size = new System.Drawing.Size(117, 29);
+            this.BookmarkSettings.Text = "Bookmarks";
+            this.BookmarkSettings.Click += new System.EventHandler(this.BookmarkSettings_Click);
+            // 
+            // ImportButton
+            // 
+            this.ImportButton.Name = "ImportButton";
+            this.ImportButton.Size = new System.Drawing.Size(263, 34);
+            this.ImportButton.Text = "Import Bookmarks";
+            this.ImportButton.Click += new System.EventHandler(this.ImportButton_Click);
+            // 
+            // ExportButton
+            // 
+            this.ExportButton.Name = "ExportButton";
+            this.ExportButton.Size = new System.Drawing.Size(263, 34);
+            this.ExportButton.Text = "Export Bookmarks";
+            this.ExportButton.Click += new System.EventHandler(this.ExportButton_Click);
+            // 
+            // BookmarkSettingsButton
+            // 
+            this.BookmarkSettingsButton.Name = "BookmarkSettingsButton";
+            this.BookmarkSettingsButton.Size = new System.Drawing.Size(263, 34);
+            this.BookmarkSettingsButton.Text = "More Settings";
+            this.BookmarkSettingsButton.Click += new System.EventHandler(this.BookmarkSettingsButton_Click);
+            // 
+            // SettingsButton
+            // 
+            this.SettingsButton.Enabled = false;
+            this.SettingsButton.Location = new System.Drawing.Point(69, 23);
+            this.SettingsButton.Name = "SettingsButton";
+            this.SettingsButton.Size = new System.Drawing.Size(75, 23);
+            this.SettingsButton.TabIndex = 5;
+            this.SettingsButton.Text = "Settings";
+            this.SettingsButton.UseVisualStyleBackColor = true;
+            this.SettingsButton.Visible = false;
+            this.SettingsButton.Click += new System.EventHandler(this.SettingsButton_Click);
             // 
             // Main
             // 
@@ -204,41 +308,57 @@ namespace WindowsFormsApp1
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.BackColor = System.Drawing.SystemColors.Control;
-            this.ClientSize = new System.Drawing.Size(1200, 920);
-            this.Controls.Add(this.Content);
-            this.Controls.Add(this.contentHeader);
-            this.Controls.Add(this.Tabs);
-            this.Controls.Add(this.minimiseButton);
-            this.Controls.Add(this.maximiseButton);
-            this.Controls.Add(this.closeButton);
+            this.ClientSize = new System.Drawing.Size(1260, 985);
+            this.Controls.Add(this.SettingsButton);
+            this.Controls.Add(this.ContentPanel);
+            this.Controls.Add(this.ContentHeader);
+            this.Controls.Add(this.TabsPanel);
+            this.Controls.Add(this.MinimiseButton);
+            this.Controls.Add(this.MaximiseButton);
+            this.Controls.Add(this.CloseButton);
+            this.Controls.Add(this.BaseMenuStrip);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MinimumSize = new System.Drawing.Size(1260, 985);
             this.Name = "Main";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Show;
+            this.Text = "SDD Browser";
             this.Load += new System.EventHandler(this.Main_Load);
-            this.Content.ResumeLayout(false);
-            this.contentHeader.ResumeLayout(false);
-            this.contentHeader.PerformLayout();
+            this.TabsPanel.ResumeLayout(false);
+            this.ContentHeader.ResumeLayout(false);
+            this.ContentHeader.PerformLayout();
+            this.BaseMenuStrip.ResumeLayout(false);
+            this.BaseMenuStrip.PerformLayout();
             this.ResumeLayout(false);
-             
+            this.PerformLayout();
         }
 
         #endregion
 
-        private Panel Content;
-        private Panel contentHeader;
-        private TextBox textURL;
-        private Button searchIcon;
-        private Button closeButton;
-        private Button maximiseButton;
-        private Button minimiseButton;
-        private Button reloadButton;
-        private Button forwardButton;
-        private Button backButton;
-        private ToolTip minimiseToolTip;
-        private ToolTip closeToolTip;
-        private Panel Bookmarks;
-        private Panel Tabs;
+        private Panel ContentPanel;
+        private Panel ContentHeader;
+        private TextBox TextURL;
+        private Button SearchIcon;
+        private Button CloseButton;
+        private Button MaximiseButton;
+        private Button MinimiseButton;
+        private Button ReloadButton;
+        private Button ForwardButton;
+        private Button BackButton;
+        private ToolTip MinimiseToolTip;
+        private ToolTip CloseToolTip;
+        private Panel BookmarksPanel;
+        private Panel TabsPanel;
+        private Button newTabBtn;
+        private Button AddBookmarkButton;
+        private MenuStrip BaseMenuStrip;
+        private ToolStripMenuItem Settings;
+        private ToolStripMenuItem MoreSettingsToolStripMenuItem;
+        private ToolStripMenuItem BookmarkSettings;
+        private ToolStripMenuItem ImportButton;
+        private ToolStripMenuItem ExportButton;
+        private ToolStripMenuItem BookmarkSettingsButton;
+        private Button SettingsButton;
     }
 }
 
